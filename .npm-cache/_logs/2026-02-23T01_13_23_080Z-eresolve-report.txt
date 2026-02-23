@@ -1,0 +1,18 @@
+'Log files:
+/Users/xuyi/Documents/ClawCE/.npm-cache/_logs/2026-02-23T01_13_23_080Z-debug-0.log
+
+# npm resolution error report
+
+While resolving: clawforge@0.1.0
+Found: react@19.2.4
+node_modules/react
+  react@"^19.1.0" from the root project
+
+Could not resolve dependency:
+peer react@"^15.3.0 || ^16.0.0" from react-diff-viewer@3.1.1
+node_modules/react-diff-viewer
+  react-diff-viewer@"^3.1.1" from the root project
+
+Fix the upstream dependency conflict, or retry
+this command with --force or --legacy-peer-deps
+to accept an incorrect (and potentially broken) dependency resolution.
