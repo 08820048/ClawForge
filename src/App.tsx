@@ -239,11 +239,7 @@ function App() {
     }
 
     setWorkspacePath(selected);
-    setSelectedFile(null);
-    setFileContent("");
-    setEditedContent("");
-    setBackups([]);
-    setViewingPath(null);
+    resetEditor();
 
     try {
       const result = await invoke<FileNode>("scan_workspace_with_config", {
@@ -258,6 +254,17 @@ function App() {
         message: `扫描失败：${String(error)}`,
       });
     }
+  }
+
+  function resetEditor() {
+    setSelectedFile(null);
+    setFileContent("");
+    setEditedContent("");
+    setBackups([]);
+    setViewingPath(null);
+    setDiffBase(null);
+    setDiffTarget(null);
+    setDiffLabel(null);
   }
 
   async function loadFile(node: FileNode) {
@@ -306,10 +313,10 @@ function App() {
     } catch {
       setBackups([]);
     }
+
     setDiffBase(null);
     setDiffTarget(null);
     setDiffLabel(null);
-    setCollapsedDirs({});
   }
 
   async function saveCurrent() {
@@ -442,8 +449,7 @@ function App() {
           <button
             type="button"
             onClick={async () => {
-              const path = contextMenu.file.path;
-              await revealItemInDir(path);
+              await revealItemInDir(contextMenu.file.path);
               setContextMenu(null);
             }}
           >
@@ -520,15 +526,20 @@ function App() {
                 {validation.message}
               </div>
             )}
-            <button
-              className="ghost"
-              onClick={saveCurrent}
-              type="button"
-              disabled={!selectedFile || mode !== "source"}
-              title="Ctrl+S / Cmd+S"
-            >
-              保存
-            </button>
+            <div className="validation-actions">
+              <button
+                className="ghost"
+                onClick={saveCurrent}
+                type="button"
+                disabled={!selectedFile || mode !== "source"}
+                title="Ctrl+S / Cmd+S"
+              >
+                保存
+              </button>
+              <div className="status" data-tone={status.tone}>
+                {status.message}
+              </div>
+            </div>
           </div>
 
           <div className="viewer">
@@ -660,9 +671,7 @@ function App() {
               <span className="backup-label">{entry.name}</span>
             </div>
           ))}
-          {viewingPath && (
-            <div className="empty">正在查看历史版本。</div>
-          )}
+          {viewingPath && <div className="empty">正在查看历史版本。</div>}
         </aside>
       </div>
     </div>

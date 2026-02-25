@@ -1,8 +1,8 @@
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{env, path::PathBuf};
+use std::{env};
 
 const MAX_READ_BYTES: u64 = 1_048_576;
 const MAX_DEPTH: usize = 8;
@@ -257,6 +257,18 @@ fn scan_workspace_with_config(path: String) -> Result<FileNode, String> {
 
 #[tauri::command]
 fn detect_workspace() -> Result<WorkspaceDetect, String> {
+    if let Some(home) = dirs_next::home_dir() {
+        let base = home.join(".openclaw");
+        let path_str = base.to_string_lossy().to_string();
+        if base.exists() {
+            return Ok(WorkspaceDetect {
+                path: Some(path_str),
+                source: "default".to_string(),
+                exists: true,
+            });
+        }
+    }
+
     if let Some(path) = read_openclaw_workspace() {
         let exists = Path::new(&path).exists();
         return Ok(WorkspaceDetect {
@@ -431,6 +443,7 @@ fn list_backups(path: String) -> Result<Vec<BackupEntry>, String> {
     entries.sort_by(|a, b| b.name.cmp(&a.name));
     Ok(entries)
 }
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

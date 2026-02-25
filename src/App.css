@@ -292,9 +292,21 @@ body {
 .validation-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.validation-actions {
+  margin-left: auto;
+  margin-right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .mode-switch {
