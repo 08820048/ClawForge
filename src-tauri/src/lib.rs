@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env};
 
@@ -444,6 +445,30 @@ fn list_backups(path: String) -> Result<Vec<BackupEntry>, String> {
     Ok(entries)
 }
 
+#[tauri::command]
+fn gateway_status() -> Result<String, String> {
+    let output = Command::new("openclaw")
+        .args(["gateway", "status"])
+        .output()
+        .map_err(|e| format!("Failed to run openclaw: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let message = if stderr.is_empty() {
+            format!("openclaw exited with status {}", output.status)
+        } else {
+            stderr
+        };
+        return Err(message);
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if stdout.is_empty() {
+        Ok("未知".to_string())
+    } else {
+        Ok(stdout)
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -458,7 +483,8 @@ pub fn run() {
             parse_structured,
             validate_file,
             save_file,
-            list_backups
+            list_backups,
+            gateway_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

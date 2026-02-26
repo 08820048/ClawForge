@@ -108,6 +108,8 @@ function App() {
   const [fileContent, setFileContent] = useState<string>("");
   const [editedContent, setEditedContent] = useState<string>("");
   const [mode, setMode] = useState<ViewMode>("source");
+  const [gatewayStatus, setGatewayStatus] = useState<string>("获取中...");
+  const [gatewayTone, setGatewayTone] = useState<"idle" | "error">("idle");
   const [status, setStatus] = useState<Status>({
     tone: "idle",
     message: "",
@@ -185,6 +187,30 @@ function App() {
     };
 
     autoDetect();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchStatus = async () => {
+      try {
+        const result = await invoke<string>("gateway_status");
+        if (cancelled) return;
+        setGatewayStatus(result || "未知");
+        setGatewayTone("idle");
+      } catch (error) {
+        if (cancelled) return;
+        setGatewayStatus("不可用");
+        setGatewayTone("error");
+      }
+    };
+
+    fetchStatus();
+    const timer = window.setInterval(fetchStatus, 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -490,6 +516,14 @@ function App() {
 
   return (
     <div className="app">
+      <div className="topbar">
+        <div className="topbar-left">ClawForge</div>
+        <div className="topbar-right">
+          <div className="gateway-status" data-tone={gatewayTone}>
+            网关状态：{gatewayStatus}
+          </div>
+        </div>
+      </div>
       {contextMenu && (
         <div
           className="context-menu"

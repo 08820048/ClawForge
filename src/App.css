@@ -50,6 +50,43 @@ body {
   flex-direction: column;
 }
 
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: #f4f1ec;
+  border-bottom: 1px solid rgba(16, 16, 22, 0.08);
+}
+
+.topbar-left {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(16, 16, 22, 0.8);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gateway-status {
+  font-size: 12px;
+  color: rgba(16, 16, 22, 0.7);
+  background: #ffffff;
+  border: 1px solid rgba(16, 16, 22, 0.08);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.gateway-status[data-tone="error"] {
+  color: #b3261e;
+  border-color: rgba(179, 38, 30, 0.25);
+  background: #ffffff;
+}
+
 .status {
   font-size: 12px;
   color: rgba(16, 16, 22, 0.6);
