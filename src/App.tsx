@@ -8,7 +8,7 @@ import { json as jsonLang } from "@codemirror/lang-json";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark as prismOneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import ReactDiffViewer from "react-diff-viewer-continued";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { FileJson, Folder, Heading } from "lucide-react";
 import "./App.css";
 
@@ -573,7 +573,7 @@ function App() {
                       newValue={diffTarget}
                       splitView={true}
                       useDarkTheme={true}
-                      compareMethod="diffWords"
+                      compareMethod={DiffMethod.WORDS}
                     />
                   </div>
                 ) : isMarkdownFile(selectedFile) ? (
