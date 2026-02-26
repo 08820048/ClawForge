@@ -464,9 +464,23 @@ fn gateway_status() -> Result<String, String> {
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if stdout.is_empty() {
-        Ok("未知".to_string())
+        return Ok("未知".to_string());
+    }
+
+    let lower = stdout.to_lowercase();
+    let ok = lower.contains("rpc probe: ok");
+    let running = lower.contains("state active")
+        || lower.contains("state: active")
+        || lower.contains("running");
+
+    if ok && running {
+        Ok("OK running".to_string())
+    } else if ok {
+        Ok("OK".to_string())
+    } else if running {
+        Ok("running".to_string())
     } else {
-        Ok(stdout)
+        Ok("not running".to_string())
     }
 }
 
