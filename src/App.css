@@ -14,10 +14,7 @@
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(255, 210, 138, 0.35), transparent 45%),
-    radial-gradient(circle at 80% 0%, rgba(126, 197, 255, 0.35), transparent 40%),
-    #f4f1ec;
+  background: #f4f1ec;
   min-height: 100vh;
   overflow: hidden;
 }
@@ -98,6 +95,12 @@ body {
   font-weight: 600;
 }
 
+.panel-title-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .panel-subtitle {
   font-size: 12px;
   color: rgba(16, 16, 22, 0.6);
@@ -125,6 +128,25 @@ body {
 
 .link-button:hover {
   text-decoration: underline;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(16, 16, 22, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: rgba(16, 16, 22, 0.7);
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: border 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.icon-button:hover {
+  border-color: rgba(16, 16, 22, 0.25);
+  color: rgba(16, 16, 22, 0.9);
+  background: #ffffff;
 }
 
 .primary {

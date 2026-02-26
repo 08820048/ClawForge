@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { homeDir } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import ReactMarkdown from "react-markdown";
@@ -9,7 +10,7 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark as prismOneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
-import { FileJson, Folder, Heading } from "lucide-react";
+import { ArrowLeftRight, FileJson, Folder, Heading } from "lucide-react";
 import "./App.css";
 
 type FileNode = {
@@ -99,6 +100,9 @@ function renderFileIcon(name: string) {
 
 function App() {
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
+  const [configPath, setConfigPath] = useState<string | null>(null);
+  const [workPath, setWorkPath] = useState<string | null>(null);
+  const [dirMode, setDirMode] = useState<"config" | "work">("config");
   const [tree, setTree] = useState<FileNode | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
@@ -142,22 +146,30 @@ function App() {
       try {
         const result = await invoke<WorkspaceDetect>("detect_workspace");
         if (result.path && result.exists) {
-          setWorkspacePath(result.path);
-          const treeResult = await invoke<FileNode>("scan_workspace_with_config", {
-            path: result.path,
-          });
-          setTree(treeResult);
-          setStatus({
-            tone: "success",
-            message: `已自动识别：${result.source}`,
-          });
+          setConfigPath(result.path);
+          if (dirMode === "config") {
+            await scanWorkspace(result.path, `已自动识别：${result.source}`);
+          } else {
+            setStatus({
+              tone: "success",
+              message: `已检测到配置目录：${result.path}`,
+            });
+          }
         } else if (result.path && !result.exists) {
-          setWorkspacePath(result.path);
-          setTree(null);
-          setStatus({
-            tone: "error",
-            message: `检测到路径但不存在：${result.path}`,
-          });
+          setConfigPath(result.path);
+          if (dirMode === "config") {
+            setWorkspacePath(result.path);
+            setTree(null);
+            setStatus({
+              tone: "error",
+              message: `检测到路径但不存在：${result.path}`,
+            });
+          } else {
+            setStatus({
+              tone: "error",
+              message: `检测到配置目录但不存在：${result.path}`,
+            });
+          }
         } else {
           setStatus({
             tone: "idle",
@@ -231,22 +243,31 @@ function App() {
   }, [editedContent, diffBase]);
 
   async function chooseWorkspace() {
-    setStatus({ tone: "loading", message: "选择工作区..." });
+    setStatus({ tone: "loading", message: "选择目录..." });
     const selected = await open({ directory: true, multiple: false });
     if (!selected || typeof selected !== "string") {
       setStatus({ tone: "idle", message: "已取消选择。" });
       return;
     }
 
-    setWorkspacePath(selected);
+    setConfigPath(selected);
+    if (dirMode === "config") {
+      await scanWorkspace(selected, "扫描完成。");
+      return;
+    }
+    setStatus({ tone: "idle", message: "已更新配置目录，切换后查看。" });
+  }
+
+  async function scanWorkspace(path: string, successMessage: string) {
+    setWorkspacePath(path);
     resetEditor();
 
     try {
       const result = await invoke<FileNode>("scan_workspace_with_config", {
-        path: selected,
+        path,
       });
       setTree(result);
-      setStatus({ tone: "idle", message: "扫描完成。" });
+      setStatus({ tone: "success", message: successMessage });
     } catch (error) {
       setTree(null);
       setStatus({
@@ -254,6 +275,34 @@ function App() {
         message: `扫描失败：${String(error)}`,
       });
     }
+  }
+
+  async function resolveWorkPath() {
+    if (workPath) return workPath;
+    const home = await homeDir();
+    const normalized = home.replace(/[\\/]+$/, "");
+    const resolved = `${normalized}/clawd`;
+    setWorkPath(resolved);
+    return resolved;
+  }
+
+  async function toggleDirectoryMode() {
+    const nextMode = dirMode === "config" ? "work" : "config";
+    setDirMode(nextMode);
+    if (nextMode === "work") {
+      const path = await resolveWorkPath();
+      await scanWorkspace(path, "扫描完成。");
+      return;
+    }
+
+    if (configPath) {
+      await scanWorkspace(configPath, "扫描完成。");
+      return;
+    }
+
+    setWorkspacePath(null);
+    setTree(null);
+    setStatus({ tone: "idle", message: "未检测到默认工作区，请手动选择。" });
   }
 
   function resetEditor() {
@@ -461,20 +510,33 @@ function App() {
         <aside className="sidebar">
           <div className="sidebar-header">
             <div>
-              <div className="panel-title">配置文件</div>
+              <div className="panel-title panel-title-toggle">
+                {dirMode === "work" ? "工作目录" : "配置目录"}
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={toggleDirectoryMode}
+                  aria-label={
+                    dirMode === "work" ? "切换到配置目录" : "切换到工作目录"
+                  }
+                  title={dirMode === "work" ? "切换到配置目录" : "切换到工作目录"}
+                >
+                  <ArrowLeftRight size={14} strokeWidth={1.6} />
+                </button>
+              </div>
               <div className="panel-subtitle">
-                {workspacePath ?? "尚未选择工作区"}
+                {workspacePath ?? "尚未选择目录"}
               </div>
             </div>
             <button className="link-button" onClick={chooseWorkspace} type="button">
-              选择工作区
+              选择目录
             </button>
           </div>
           <div className="tree">
             {tree ? (
               renderTree(tree)
             ) : (
-              <div className="empty">选择工作区后显示配置文件树。</div>
+              <div className="empty">选择目录后显示文件树。</div>
             )}
           </div>
         </aside>
