@@ -503,6 +503,15 @@ pub fn run() {
 
             let about_item =
                 MenuItem::with_id(app, "about-clawforge", "About ClawForge", true, None::<&str>)?;
+            let language_item = MenuItem::with_id(
+                app,
+                "open-language-settings",
+                "Language...",
+                true,
+                None::<&str>,
+            )?;
+            let settings_menu =
+                Submenu::with_items(app, "Settings", true, &[&language_item])?;
 
             #[cfg(target_os = "macos")]
             let app_menu = Submenu::with_items(
@@ -580,6 +589,7 @@ pub fn run() {
                     #[cfg(not(target_os = "macos"))]
                     &file_menu,
                     &edit_menu,
+                    &settings_menu,
                     #[cfg(target_os = "macos")]
                     &view_menu,
                     &window_menu,
@@ -591,6 +601,9 @@ pub fn run() {
         .on_menu_event(|app, event| {
             if event.id() == "about-clawforge" {
                 let _ = app.emit("about-clawforge", ());
+            }
+            if event.id() == "open-language-settings" {
+                let _ = app.emit("open-language-settings", ());
             }
         })
         .invoke_handler(tauri::generate_handler![

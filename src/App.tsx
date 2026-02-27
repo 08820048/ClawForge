@@ -42,6 +42,143 @@ type FlatEntry = {
   value: string;
 };
 
+type Language = "zh" | "en";
+
+const translations: Record<Language, Record<string, string>> = {
+  zh: {
+    lang_title: "选择语言",
+    lang_subtitle: "请选择你要使用的界面语言",
+    lang_zh: "中文",
+    lang_en: "English",
+    lang_settings_title: "语言设置",
+    lang_settings_desc: "切换应用显示语言",
+    confirm_unsaved: "当前文件有未保存的修改，是否保存？",
+    status_auto_detect: "自动识别工作区...",
+    status_auto_detected: "已自动识别：{source}",
+    status_auto_detect_failed: "自动识别失败：{error}",
+    status_path_missing: "检测到路径但不存在：{path}",
+    status_detected_config: "已检测到配置目录：{path}",
+    status_missing_config: "检测到配置目录但不存在：{path}",
+    status_no_default: "未检测到默认工作区，请手动选择。",
+    status_choose_dir: "选择目录...",
+    status_cancel_choose: "已取消选择。",
+    status_scan_done: "扫描完成。",
+    status_config_updated: "已更新配置目录，切换后查看。",
+    status_scan_failed: "扫描失败：{error}",
+    status_saving: "保存中...",
+    status_saved: "已保存并创建备份",
+    status_save_failed: "保存失败：{error}",
+    status_read_backup: "读取历史版本...",
+    status_reading_file: "读取文件...",
+    status_read_failed: "读取失败：{error}",
+    status_diff_building: "生成差异对比...",
+    status_diff_failed: "对比失败：{error}",
+    gateway_loading: "获取中...",
+    gateway_unknown: "未知",
+    gateway_unavailable: "不可用",
+    json_empty: "JSON 为空",
+    json_ok_live: "JSON 校验通过（实时）",
+    context_reveal: "在文件夹中显示",
+    empty_content: "(空文件或未加载)",
+    meta_name: "名称",
+    meta_type: "类型",
+    meta_path: "路径",
+    action_view: "查看",
+    action_diff: "对比",
+    gateway_label: "网关状态：",
+    dir_config: "配置目录",
+    dir_work: "工作目录",
+    toggle_to_config: "切换到配置目录",
+    toggle_to_work: "切换到工作目录",
+    no_dir_selected: "尚未选择目录",
+    choose_dir: "选择目录",
+    empty_tree: "选择目录后显示文件树。",
+    editor_title: "编辑区",
+    editor_empty: "请选择文件进行编辑",
+    mode_form: "表单视图",
+    mode_source: "源码视图",
+    mode_preview: "预览视图",
+    exit_diff: "退出对比",
+    save_hint: "使用 Ctrl+S 保存",
+    no_file_selected: "尚未选择文件。",
+    history_title: "历史版本",
+    history_label: "历史版本: {label}",
+    form_empty: "暂无结构化数据可展示。",
+    inspector_title: "检查器",
+    inspector_empty: "选择文件后显示属性。",
+    history_empty: "暂无历史版本。",
+    viewing_history: "正在查看历史版本。",
+    about_title: "About ClawForge",
+    about_content: "ClawForge\n开发者：xuyi.dev\n开源地址：https://github.com/08820048/ClawForge",
+  },
+  en: {
+    lang_title: "Choose Language",
+    lang_subtitle: "Select the interface language",
+    lang_zh: "中文",
+    lang_en: "English",
+    lang_settings_title: "Language",
+    lang_settings_desc: "Switch app display language",
+    confirm_unsaved: "You have unsaved changes. Save now?",
+    status_auto_detect: "Detecting workspace...",
+    status_auto_detected: "Auto detected: {source}",
+    status_auto_detect_failed: "Auto detect failed: {error}",
+    status_path_missing: "Detected path missing: {path}",
+    status_detected_config: "Config directory detected: {path}",
+    status_missing_config: "Config directory not found: {path}",
+    status_no_default: "No default workspace detected. Please choose a directory.",
+    status_choose_dir: "Choose directory...",
+    status_cancel_choose: "Selection cancelled.",
+    status_scan_done: "Scan completed.",
+    status_config_updated: "Config directory updated. Switch to view.",
+    status_scan_failed: "Scan failed: {error}",
+    status_saving: "Saving...",
+    status_saved: "Saved and backup created",
+    status_save_failed: "Save failed: {error}",
+    status_read_backup: "Loading backup...",
+    status_reading_file: "Reading file...",
+    status_read_failed: "Read failed: {error}",
+    status_diff_building: "Building diff...",
+    status_diff_failed: "Diff failed: {error}",
+    gateway_loading: "Loading...",
+    gateway_unknown: "Unknown",
+    gateway_unavailable: "Unavailable",
+    json_empty: "JSON is empty",
+    json_ok_live: "JSON valid (live)",
+    context_reveal: "Show in folder",
+    empty_content: "(empty or not loaded)",
+    meta_name: "Name",
+    meta_type: "Type",
+    meta_path: "Path",
+    action_view: "View",
+    action_diff: "Diff",
+    gateway_label: "Gateway: ",
+    dir_config: "Config Directory",
+    dir_work: "Work Directory",
+    toggle_to_config: "Switch to config directory",
+    toggle_to_work: "Switch to work directory",
+    no_dir_selected: "No directory selected",
+    choose_dir: "Choose directory",
+    empty_tree: "Choose a directory to show files.",
+    editor_title: "Editor",
+    editor_empty: "Select a file to edit",
+    mode_form: "Form",
+    mode_source: "Source",
+    mode_preview: "Preview",
+    exit_diff: "Exit diff",
+    save_hint: "Use Ctrl+S to save",
+    no_file_selected: "No file selected.",
+    history_title: "History",
+    history_label: "History: {label}",
+    form_empty: "No structured data available.",
+    inspector_title: "Inspector",
+    inspector_empty: "Select a file to view details.",
+    history_empty: "No history available.",
+    viewing_history: "Viewing a history version.",
+    about_title: "About ClawForge",
+    about_content: "ClawForge\nDeveloper: xuyi.dev\nSource: https://github.com/08820048/ClawForge",
+  },
+};
+
 type ViewMode = "form" | "source" | "preview";
 
 type WorkspaceDetect = {
@@ -100,6 +237,13 @@ function renderFileIcon(name: string) {
 }
 
 function App() {
+  const [language, setLanguage] = useState<Language>(() => {
+    const stored = localStorage.getItem("clawforge.language");
+    return stored === "en" || stored === "zh" ? stored : "zh";
+  });
+  const [showLanguageModal, setShowLanguageModal] = useState<boolean>(() => {
+    return localStorage.getItem("clawforge.language") === null;
+  });
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [configPath, setConfigPath] = useState<string | null>(null);
   const [workPath, setWorkPath] = useState<string | null>(null);
@@ -109,8 +253,9 @@ function App() {
   const [fileContent, setFileContent] = useState<string>("");
   const [editedContent, setEditedContent] = useState<string>("");
   const [mode, setMode] = useState<ViewMode>("source");
-  const [gatewayStatus, setGatewayStatus] = useState<string>("获取中...");
-  const [gatewayTone, setGatewayTone] = useState<"idle" | "error">("idle");
+  const [gatewayStatus, setGatewayStatus] = useState<string>(
+    translations[language].gateway_loading,
+  );
   const gatewayLoadingRef = useRef(false);
   const [status, setStatus] = useState<Status>({
     tone: "idle",
@@ -143,20 +288,47 @@ function App() {
   }, [selectedFile]);
 
   const activeContent = viewingPath ? fileContent : editedContent;
+  const prevLanguageRef = useRef<Language>(language);
+  const t = (key: string, params?: Record<string, string>) => {
+    const template = translations[language][key] ?? key;
+    if (!params) return template;
+    return Object.keys(params).reduce(
+      (acc, k) => acc.replace(`{${k}}`, params[k]),
+      template,
+    );
+  };
+
+  useEffect(() => {
+    const prev = prevLanguageRef.current;
+    if (prev === language) return;
+    const prevTexts = translations[prev];
+    const nextTexts = translations[language];
+    if (gatewayStatus === prevTexts.gateway_loading) {
+      setGatewayStatus(nextTexts.gateway_loading);
+    } else if (gatewayStatus === prevTexts.gateway_unknown) {
+      setGatewayStatus(nextTexts.gateway_unknown);
+    } else if (gatewayStatus === prevTexts.gateway_unavailable) {
+      setGatewayStatus(nextTexts.gateway_unavailable);
+    }
+    prevLanguageRef.current = language;
+  }, [language, gatewayStatus]);
 
   useEffect(() => {
     const autoDetect = async () => {
-      setStatus({ tone: "loading", message: "自动识别工作区..." });
+      setStatus({ tone: "loading", message: t("status_auto_detect") });
       try {
         const result = await invoke<WorkspaceDetect>("detect_workspace");
         if (result.path && result.exists) {
           setConfigPath(result.path);
           if (dirMode === "config") {
-            await scanWorkspace(result.path, `已自动识别：${result.source}`);
+            await scanWorkspace(
+              result.path,
+              t("status_auto_detected", { source: result.source }),
+            );
           } else {
             setStatus({
               tone: "success",
-              message: `已检测到配置目录：${result.path}`,
+            message: t("status_detected_config", { path: result.path }),
             });
           }
         } else if (result.path && !result.exists) {
@@ -166,24 +338,24 @@ function App() {
             setTree(null);
             setStatus({
               tone: "error",
-              message: `检测到路径但不存在：${result.path}`,
+            message: t("status_path_missing", { path: result.path }),
             });
           } else {
             setStatus({
               tone: "error",
-              message: `检测到配置目录但不存在：${result.path}`,
+              message: t("status_missing_config", { path: result.path }),
             });
           }
         } else {
           setStatus({
             tone: "idle",
-            message: "未检测到默认工作区，请手动选择。",
+            message: t("status_no_default"),
           });
         }
       } catch (error) {
         setStatus({
           tone: "error",
-          message: `自动识别失败：${String(error)}`,
+          message: t("status_auto_detect_failed", { error: String(error) }),
         });
       }
     };
@@ -200,12 +372,10 @@ function App() {
       try {
         const result = await invoke<string>("gateway_status");
         if (cancelled) return;
-        setGatewayStatus(result || "未知");
-        setGatewayTone("idle");
+        setGatewayStatus(result || t("gateway_unknown"));
       } catch (error) {
         if (cancelled) return;
-        setGatewayStatus("不可用");
-        setGatewayTone("error");
+        setGatewayStatus(t("gateway_unavailable"));
       } finally {
         gatewayLoadingRef.current = false;
       }
@@ -241,16 +411,27 @@ function App() {
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
+    let unlistenLang: (() => void) | null = null;
     const setup = async () => {
       unlisten = await listen("about-clawforge", () => {
         showAbout();
+      });
+      unlistenLang = await listen("open-language-settings", () => {
+        setShowLanguageModal(true);
       });
     };
     setup();
     return () => {
       unlisten?.();
+      unlistenLang?.();
     };
   }, []);
+
+  const applyLanguage = (next: Language) => {
+    setLanguage(next);
+    localStorage.setItem("clawforge.language", next);
+    setShowLanguageModal(false);
+  };
 
   useEffect(() => {
     if (!selectedFile || !isJsonFile(selectedFile)) return;
@@ -259,7 +440,7 @@ function App() {
         setValidation({
           ok: false,
           kind: "json",
-          message: "JSON 为空",
+          message: t("json_empty"),
         });
         return;
       }
@@ -268,7 +449,7 @@ function App() {
         setValidation({
           ok: true,
           kind: "json",
-          message: "JSON 校验通过（实时）",
+          message: t("json_ok_live"),
         });
       } catch (error) {
         setValidation({
@@ -288,19 +469,19 @@ function App() {
   }, [editedContent, diffBase]);
 
   async function chooseWorkspace() {
-    setStatus({ tone: "loading", message: "选择目录..." });
+    setStatus({ tone: "loading", message: t("status_choose_dir") });
     const selected = await open({ directory: true, multiple: false });
     if (!selected || typeof selected !== "string") {
-      setStatus({ tone: "idle", message: "已取消选择。" });
+      setStatus({ tone: "idle", message: t("status_cancel_choose") });
       return;
     }
 
     setConfigPath(selected);
     if (dirMode === "config") {
-      await scanWorkspace(selected, "扫描完成。");
+      await scanWorkspace(selected, t("status_scan_done"));
       return;
     }
-    setStatus({ tone: "idle", message: "已更新配置目录，切换后查看。" });
+    setStatus({ tone: "idle", message: t("status_config_updated") });
   }
 
   async function scanWorkspace(path: string, successMessage: string) {
@@ -317,7 +498,7 @@ function App() {
       setTree(null);
       setStatus({
         tone: "error",
-        message: `扫描失败：${String(error)}`,
+        message: t("status_scan_failed", { error: String(error) }),
       });
     }
   }
@@ -336,28 +517,25 @@ function App() {
     setDirMode(nextMode);
     if (nextMode === "work") {
       const path = await resolveWorkPath();
-      await scanWorkspace(path, "扫描完成。");
+      await scanWorkspace(path, t("status_scan_done"));
       return;
     }
 
     if (configPath) {
-      await scanWorkspace(configPath, "扫描完成。");
+      await scanWorkspace(configPath, t("status_scan_done"));
       return;
     }
 
     setWorkspacePath(null);
     setTree(null);
-    setStatus({ tone: "idle", message: "未检测到默认工作区，请手动选择。" });
+    setStatus({ tone: "idle", message: t("status_no_default") });
   }
 
   async function showAbout() {
-    await message(
-      "ClawForge\n开发者：xuyi.dev\n开源地址：https://github.com/08820048/ClawForge",
-      {
-        title: "About ClawForge",
-        kind: "info",
-      },
-    );
+    await message(t("about_content"), {
+      title: t("about_title"),
+      kind: "info",
+    });
   }
 
   function resetEditor() {
@@ -374,7 +552,7 @@ function App() {
   async function loadFile(node: FileNode) {
     if (node.kind !== "file") return;
     if (selectedFile && editedContent !== fileContent) {
-      const shouldSave = await confirm("当前文件有未保存的修改，是否保存？");
+      const shouldSave = await confirm(t("confirm_unsaved"));
       if (shouldSave) {
         const saved = await saveCurrent();
         if (!saved) {
@@ -383,7 +561,7 @@ function App() {
       }
     }
     setSelectedFile(node);
-    setStatus({ tone: "loading", message: "读取文件..." });
+    setStatus({ tone: "loading", message: t("status_reading_file") });
     setViewingPath(null);
 
     try {
@@ -396,7 +574,7 @@ function App() {
       setEditedContent("");
       setStatus({
         tone: "error",
-        message: `读取失败：${String(error)}`,
+        message: t("status_read_failed", { error: String(error) }),
       });
     }
 
@@ -434,7 +612,7 @@ function App() {
 
   async function saveCurrent(): Promise<boolean> {
     if (!selectedFile) return false;
-    setStatus({ tone: "loading", message: "保存中..." });
+    setStatus({ tone: "loading", message: t("status_saving") });
     try {
       await invoke("save_file", {
         path: selectedFile.path,
@@ -445,19 +623,19 @@ function App() {
         path: selectedFile.path,
       });
       setBackups(list);
-      setStatus({ tone: "success", message: "已保存并创建备份" });
+      setStatus({ tone: "success", message: t("status_saved") });
       return true;
     } catch (error) {
       setStatus({
         tone: "error",
-        message: `保存失败：${String(error)}`,
+        message: t("status_save_failed", { error: String(error) }),
       });
       return false;
     }
   }
 
   async function viewBackup(entry: BackupEntry) {
-    setStatus({ tone: "loading", message: "读取历史版本..." });
+    setStatus({ tone: "loading", message: t("status_read_backup") });
     try {
       const content = await invoke<string>("read_file", { path: entry.path });
       setFileContent(content);
@@ -466,14 +644,14 @@ function App() {
     } catch (error) {
       setStatus({
         tone: "error",
-        message: `读取失败：${String(error)}`,
+        message: t("status_read_failed", { error: String(error) }),
       });
     }
   }
 
   async function diffWithBackup(entry: BackupEntry) {
     if (!selectedFile) return;
-    setStatus({ tone: "loading", message: "生成差异对比..." });
+    setStatus({ tone: "loading", message: t("status_diff_building") });
     try {
       const backupContent = await invoke<string>("read_file", {
         path: entry.path,
@@ -486,7 +664,7 @@ function App() {
     } catch (error) {
       setStatus({
         tone: "error",
-        message: `对比失败：${String(error)}`,
+        message: t("status_diff_failed", { error: String(error) }),
       });
     }
   }
@@ -556,6 +734,30 @@ function App() {
 
   return (
     <div className="app">
+      {showLanguageModal && (
+        <div className="language-modal">
+          <div className="language-card">
+            <div className="language-title">{t("lang_title")}</div>
+            <div className="language-subtitle">{t("lang_subtitle")}</div>
+            <div className="language-options">
+              <button
+                type="button"
+                className="language-button"
+                onClick={() => applyLanguage("zh")}
+              >
+                {t("lang_zh")}
+              </button>
+              <button
+                type="button"
+                className="language-button"
+                onClick={() => applyLanguage("en")}
+              >
+                {t("lang_en")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="titlebar" data-tauri-drag-region>
         <div className="titlebar-spacer" />
         <div className="titlebar-right">
@@ -567,7 +769,7 @@ function App() {
                   : "gateway-dot error"
               }
             />
-            <span className="gateway-label">网关状态：</span>
+            <span className="gateway-label">{t("gateway_label")}</span>
             <span
               className={
                 gatewayStatus.toLowerCase() === "running"
@@ -592,7 +794,7 @@ function App() {
               setContextMenu(null);
             }}
           >
-            在文件夹中显示
+            {t("context_reveal")}
           </button>
         </div>
       )}
@@ -601,32 +803,32 @@ function App() {
           <div className="sidebar-header">
             <div>
               <div className="panel-title panel-title-toggle">
-                {dirMode === "work" ? "工作目录" : "配置目录"}
+                {dirMode === "work" ? t("dir_work") : t("dir_config")}
                 <button
                   type="button"
                   className="icon-button"
                   onClick={toggleDirectoryMode}
                   aria-label={
-                    dirMode === "work" ? "切换到配置目录" : "切换到工作目录"
+                    dirMode === "work" ? t("toggle_to_config") : t("toggle_to_work")
                   }
-                  title={dirMode === "work" ? "切换到配置目录" : "切换到工作目录"}
+                  title={dirMode === "work" ? t("toggle_to_config") : t("toggle_to_work")}
                 >
                   <ArrowLeftRight size={14} strokeWidth={1.6} />
                 </button>
               </div>
               <div className="panel-subtitle">
-                {workspacePath ?? "尚未选择目录"}
+                {workspacePath ?? t("no_dir_selected")}
               </div>
             </div>
             <button className="link-button" onClick={chooseWorkspace} type="button">
-              选择目录
+              {t("choose_dir")}
             </button>
           </div>
           <div className="tree">
             {tree ? (
               renderTree(tree)
             ) : (
-              <div className="empty">选择目录后显示文件树。</div>
+              <div className="empty">{t("empty_tree")}</div>
             )}
           </div>
         </aside>
@@ -634,9 +836,9 @@ function App() {
         <main className="content">
           <div className="content-header">
             <div>
-              <div className="panel-title">编辑区</div>
+              <div className="panel-title">{t("editor_title")}</div>
               <div className="panel-subtitle">
-                {selectedFile ? selectedFile.path : "请选择文件进行编辑"}
+                {selectedFile ? selectedFile.path : t("editor_empty")}
               </div>
             </div>
             <div className="content-header-right">
@@ -647,7 +849,7 @@ function App() {
                   onClick={() => setMode("form")}
                   disabled={!selectedFile}
                 >
-                  表单视图
+                  {t("mode_form")}
                 </button>
                 <button
                   type="button"
@@ -655,7 +857,7 @@ function App() {
                   onClick={() => setMode("source")}
                   disabled={!selectedFile}
                 >
-                  源码视图
+                  {t("mode_source")}
                 </button>
                 <button
                   type="button"
@@ -663,12 +865,12 @@ function App() {
                   onClick={() => setMode("preview")}
                   disabled={!selectedFile}
                 >
-                  预览视图
+                  {t("mode_preview")}
                 </button>
               </div>
               {diffBase !== null && (
                 <button type="button" className="ghost" onClick={clearDiff}>
-                  退出对比
+                  {t("exit_diff")}
                 </button>
               )}
             </div>
@@ -681,7 +883,7 @@ function App() {
               </div>
             )}
             <div className="validation-actions">
-              <div className="save-hint">使用 Ctrl+S 保存</div>
+              <div className="save-hint">{t("save_hint")}</div>
               <div className="status" data-tone={status.tone}>
                 {status.message}
               </div>
@@ -689,7 +891,7 @@ function App() {
           </div>
 
           <div className="viewer">
-            {!selectedFile && <div className="empty">尚未选择文件。</div>}
+            {!selectedFile && <div className="empty">{t("no_file_selected")}</div>}
             {selectedFile && mode === "source" && isJsonFile(selectedFile) && (
               <CodeMirror
                 value={editedContent}
@@ -712,7 +914,9 @@ function App() {
                 {diffBase !== null && diffTarget !== null ? (
                   <div className="diff-panel">
                     <div className="diff-title">
-                      {diffLabel ? `历史版本: ${diffLabel}` : "历史版本"}
+                      {diffLabel
+                        ? t("history_label", { label: diffLabel })
+                        : t("history_title")}
                     </div>
                     <ReactDiffViewer
                       oldValue={diffBase}
@@ -752,14 +956,14 @@ function App() {
                     {activeContent || "{}"}
                   </SyntaxHighlighter>
                 ) : (
-                  <pre>{activeContent || "(空文件或未加载)"}</pre>
+                  <pre>{activeContent || t("empty_content")}</pre>
                 )}
               </div>
             )}
             {selectedFile && mode === "form" && (
               <div className="form-view">
                 {structured.length === 0 ? (
-                  <div className="empty">暂无结构化数据可展示。</div>
+                  <div className="empty">{t("form_empty")}</div>
                 ) : (
                   structured.map((entry) => (
                     <div key={entry.key} className="form-row">
@@ -774,29 +978,29 @@ function App() {
         </main>
 
         <aside className="inspector">
-          <div className="panel-title">检查器</div>
+          <div className="panel-title">{t("inspector_title")}</div>
           {fileMeta ? (
             <div className="meta">
               <div className="meta-row">
-                <span className="meta-label">名称</span>
+                <span className="meta-label">{t("meta_name")}</span>
                 <span className="meta-value">{fileMeta.name}</span>
               </div>
               <div className="meta-row">
-                <span className="meta-label">类型</span>
+                <span className="meta-label">{t("meta_type")}</span>
                 <span className="meta-value">{fileMeta.extension}</span>
               </div>
               <div className="meta-row">
-                <span className="meta-label">路径</span>
+                <span className="meta-label">{t("meta_path")}</span>
                 <span className="meta-value">{fileMeta.path}</span>
               </div>
             </div>
           ) : (
-            <div className="empty">选择文件后显示属性。</div>
+            <div className="empty">{t("inspector_empty")}</div>
           )}
           <div className="divider" />
-          <div className="panel-title">历史版本</div>
+          <div className="panel-title">{t("history_title")}</div>
           {backups.length === 0 && (
-            <div className="empty">暂无历史版本。</div>
+            <div className="empty">{t("history_empty")}</div>
           )}
           {backups.map((entry) => (
             <div key={entry.path} className="backup-row">
@@ -805,19 +1009,19 @@ function App() {
                 onClick={() => viewBackup(entry)}
                 type="button"
               >
-                查看
+                {t("action_view")}
               </button>
               <button
                 className="backup-item ghost"
                 onClick={() => diffWithBackup(entry)}
                 type="button"
               >
-                对比
+                {t("action_diff")}
               </button>
               <span className="backup-label">{entry.name}</span>
             </div>
           ))}
-          {viewingPath && <div className="empty">正在查看历史版本。</div>}
+          {viewingPath && <div className="empty">{t("viewing_history")}</div>}
         </aside>
       </div>
     </div>
