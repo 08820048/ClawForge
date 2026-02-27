@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::Emitter;
 
 const MAX_READ_BYTES: u64 = 1_048_576;
 const MAX_DEPTH: usize = 8;
@@ -467,21 +469,24 @@ fn gateway_status() -> Result<String, String> {
         return Ok("未知".to_string());
     }
 
-    let lower = stdout.to_lowercase();
-    let ok = lower.contains("rpc probe: ok");
-    let running = lower.contains("state active")
-        || lower.contains("state: active")
-        || lower.contains("running");
+    let runtime_status = stdout
+        .lines()
+        .find_map(|line| {
+            let trimmed = line.trim();
+            if !trimmed.to_lowercase().contains("runtime:") {
+                return None;
+            }
+            let (_, rest) = trimmed.split_once("Runtime:")?;
+            let status = rest.trim();
+            if status.is_empty() {
+                return None;
+            }
+            let short = status.split('(').next().unwrap_or(status).trim();
+            Some(if short.is_empty() { status.to_string() } else { short.to_string() })
+        })
+        .unwrap_or_else(|| "未知".to_string());
 
-    if ok && running {
-        Ok("OK running".to_string())
-    } else if ok {
-        Ok("OK".to_string())
-    } else if running {
-        Ok("running".to_string())
-    } else {
-        Ok("not running".to_string())
-    }
+    Ok(runtime_status)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -489,6 +494,101 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .menu(|app| {
+            let app_name = app.package_info().name.clone();
+
+            let about_item =
+                MenuItem::with_id(app, "about-clawforge", "About ClawForge", true, None::<&str>)?;
+
+            #[cfg(target_os = "macos")]
+            let app_menu = Submenu::with_items(
+                app,
+                app_name,
+                true,
+                &[
+                    &about_item,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::services(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::hide(app, None)?,
+                    &PredefinedMenuItem::hide_others(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::quit(app, None)?,
+                ],
+            )?;
+
+            #[cfg(not(target_os = "macos"))]
+            let file_menu = Submenu::with_items(
+                app,
+                "File",
+                true,
+                &[
+                    &PredefinedMenuItem::close_window(app, None)?,
+                    &PredefinedMenuItem::quit(app, None)?,
+                ],
+            )?;
+
+            let edit_menu = Submenu::with_items(
+                app,
+                "Edit",
+                true,
+                &[
+                    &PredefinedMenuItem::undo(app, None)?,
+                    &PredefinedMenuItem::redo(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::cut(app, None)?,
+                    &PredefinedMenuItem::copy(app, None)?,
+                    &PredefinedMenuItem::paste(app, None)?,
+                    &PredefinedMenuItem::select_all(app, None)?,
+                ],
+            )?;
+
+            let window_menu = Submenu::with_items(
+                app,
+                "Window",
+                true,
+                &[
+                    &PredefinedMenuItem::minimize(app, None)?,
+                    &PredefinedMenuItem::maximize(app, None)?,
+                    #[cfg(target_os = "macos")]
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::close_window(app, None)?,
+                ],
+            )?;
+
+            #[cfg(target_os = "macos")]
+            let view_menu = Submenu::with_items(
+                app,
+                "View",
+                true,
+                &[&PredefinedMenuItem::fullscreen(app, None)?],
+            )?;
+
+            #[cfg(not(target_os = "macos"))]
+            let help_menu =
+                Submenu::with_items(app, "Help", true, &[&about_item])?;
+
+            Menu::with_items(
+                app,
+                &[
+                    #[cfg(target_os = "macos")]
+                    &app_menu,
+                    #[cfg(not(target_os = "macos"))]
+                    &file_menu,
+                    &edit_menu,
+                    #[cfg(target_os = "macos")]
+                    &view_menu,
+                    &window_menu,
+                    #[cfg(not(target_os = "macos"))]
+                    &help_menu,
+                ],
+            )
+        })
+        .on_menu_event(|app, event| {
+            if event.id() == "about-clawforge" {
+                let _ = app.emit("about-clawforge", ());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             detect_workspace,
             scan_workspace,

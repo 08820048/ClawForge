@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { homeDir } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
+import { confirm, message, open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import ReactMarkdown from "react-markdown";
 import CodeMirror from "@uiw/react-codemirror";
@@ -234,6 +235,19 @@ function App() {
   });
 
   useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    const setup = async () => {
+      unlisten = await listen("about-clawforge", () => {
+        showAbout();
+      });
+    };
+    setup();
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedFile || !isJsonFile(selectedFile)) return;
     const handle = window.setTimeout(() => {
       if (editedContent.trim().length === 0) {
@@ -331,6 +345,16 @@ function App() {
     setStatus({ tone: "idle", message: "未检测到默认工作区，请手动选择。" });
   }
 
+  async function showAbout() {
+    await message(
+      "ClawForge\n开发者：xuyi.dev\n开源地址：https://github.com/08820048/ClawForge",
+      {
+        title: "About ClawForge",
+        kind: "info",
+      },
+    );
+  }
+
   function resetEditor() {
     setSelectedFile(null);
     setFileContent("");
@@ -344,6 +368,15 @@ function App() {
 
   async function loadFile(node: FileNode) {
     if (node.kind !== "file") return;
+    if (selectedFile && editedContent !== fileContent) {
+      const shouldSave = await confirm("当前文件有未保存的修改，是否保存？");
+      if (shouldSave) {
+        const saved = await saveCurrent();
+        if (!saved) {
+          return;
+        }
+      }
+    }
     setSelectedFile(node);
     setStatus({ tone: "loading", message: "读取文件..." });
     setViewingPath(null);
@@ -394,8 +427,8 @@ function App() {
     setDiffLabel(null);
   }
 
-  async function saveCurrent() {
-    if (!selectedFile) return;
+  async function saveCurrent(): Promise<boolean> {
+    if (!selectedFile) return false;
     setStatus({ tone: "loading", message: "保存中..." });
     try {
       await invoke("save_file", {
@@ -408,11 +441,13 @@ function App() {
       });
       setBackups(list);
       setStatus({ tone: "success", message: "已保存并创建备份" });
+      return true;
     } catch (error) {
       setStatus({
         tone: "error",
         message: `保存失败：${String(error)}`,
       });
+      return false;
     }
   }
 
@@ -516,11 +551,27 @@ function App() {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="topbar-left">ClawForge</div>
-        <div className="topbar-right">
-          <div className="gateway-status" data-tone={gatewayTone}>
-            网关状态：{gatewayStatus}
+      <div className="titlebar" data-tauri-drag-region>
+        <div className="titlebar-spacer" />
+        <div className="titlebar-right">
+          <div className="gateway-status" data-tauri-drag-region="false">
+            <span
+              className={
+                gatewayStatus.toLowerCase() === "running"
+                  ? "gateway-dot ok"
+                  : "gateway-dot error"
+              }
+            />
+            <span className="gateway-label">网关状态：</span>
+            <span
+              className={
+                gatewayStatus.toLowerCase() === "running"
+                  ? "gateway-text ok"
+                  : "gateway-text error"
+              }
+            >
+              {gatewayStatus}
+            </span>
           </div>
         </div>
       </div>
@@ -583,37 +634,39 @@ function App() {
                 {selectedFile ? selectedFile.path : "请选择文件进行编辑"}
               </div>
             </div>
-            <div className="mode-switch">
-              <button
-                type="button"
-                className={mode === "form" ? "mode active" : "mode"}
-                onClick={() => setMode("form")}
-                disabled={!selectedFile}
-              >
-                表单视图
-              </button>
-              <button
-                type="button"
-                className={mode === "source" ? "mode active" : "mode"}
-                onClick={() => setMode("source")}
-                disabled={!selectedFile}
-              >
-                源码视图
-              </button>
-              <button
-                type="button"
-                className={mode === "preview" ? "mode active" : "mode"}
-                onClick={() => setMode("preview")}
-                disabled={!selectedFile}
-              >
-                预览视图
-              </button>
+            <div className="content-header-right">
+              <div className="mode-switch">
+                <button
+                  type="button"
+                  className={mode === "form" ? "mode active" : "mode"}
+                  onClick={() => setMode("form")}
+                  disabled={!selectedFile}
+                >
+                  表单视图
+                </button>
+                <button
+                  type="button"
+                  className={mode === "source" ? "mode active" : "mode"}
+                  onClick={() => setMode("source")}
+                  disabled={!selectedFile}
+                >
+                  源码视图
+                </button>
+                <button
+                  type="button"
+                  className={mode === "preview" ? "mode active" : "mode"}
+                  onClick={() => setMode("preview")}
+                  disabled={!selectedFile}
+                >
+                  预览视图
+                </button>
+              </div>
+              {diffBase !== null && (
+                <button type="button" className="ghost" onClick={clearDiff}>
+                  退出对比
+                </button>
+              )}
             </div>
-            {diffBase !== null && (
-              <button type="button" className="ghost" onClick={clearDiff}>
-                退出对比
-              </button>
-            )}
           </div>
 
           <div className="validation-row">
@@ -623,15 +676,7 @@ function App() {
               </div>
             )}
             <div className="validation-actions">
-              <button
-                className="ghost"
-                onClick={saveCurrent}
-                type="button"
-                disabled={!selectedFile || mode !== "source"}
-                title="Ctrl+S / Cmd+S"
-              >
-                保存
-              </button>
+              <div className="save-hint">使用 Ctrl+S 保存</div>
               <div className="status" data-tone={status.tone}>
                 {status.message}
               </div>
