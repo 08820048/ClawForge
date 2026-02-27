@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { homeDir } from "@tauri-apps/api/path";
@@ -111,6 +111,7 @@ function App() {
   const [mode, setMode] = useState<ViewMode>("source");
   const [gatewayStatus, setGatewayStatus] = useState<string>("获取中...");
   const [gatewayTone, setGatewayTone] = useState<"idle" | "error">("idle");
+  const gatewayLoadingRef = useRef(false);
   const [status, setStatus] = useState<Status>({
     tone: "idle",
     message: "",
@@ -194,6 +195,8 @@ function App() {
     let cancelled = false;
 
     const fetchStatus = async () => {
+      if (gatewayLoadingRef.current) return;
+      gatewayLoadingRef.current = true;
       try {
         const result = await invoke<string>("gateway_status");
         if (cancelled) return;
@@ -203,11 +206,13 @@ function App() {
         if (cancelled) return;
         setGatewayStatus("不可用");
         setGatewayTone("error");
+      } finally {
+        gatewayLoadingRef.current = false;
       }
     };
 
     fetchStatus();
-    const timer = window.setInterval(fetchStatus, 10000);
+    const timer = window.setInterval(fetchStatus, 30000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);

@@ -448,11 +448,15 @@ fn list_backups(path: String) -> Result<Vec<BackupEntry>, String> {
 }
 
 #[tauri::command]
-fn gateway_status() -> Result<String, String> {
-    let output = Command::new("openclaw")
-        .args(["gateway", "status"])
-        .output()
-        .map_err(|e| format!("Failed to run openclaw: {}", e))?;
+async fn gateway_status() -> Result<String, String> {
+    let output = tauri::async_runtime::spawn_blocking(|| {
+        Command::new("openclaw")
+            .args(["gateway", "status"])
+            .output()
+    })
+    .await
+    .map_err(|e| format!("Failed to run openclaw: {}", e))?
+    .map_err(|e| format!("Failed to run openclaw: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
