@@ -78,6 +78,8 @@ const translations: Record<Language, Record<string, string>> = {
     gateway_unavailable: "不可用",
     json_empty: "JSON 为空",
     json_ok_live: "JSON 校验通过（实时）",
+    json_live_delayed: "JSON 校验通过（大文件延迟校验）",
+    json_large_mode: "大 JSON 文件已切换轻量编辑模式，以减少卡顿。",
     context_reveal: "在文件夹中显示",
     empty_content: "(空文件或未加载)",
     meta_name: "名称",
@@ -85,6 +87,8 @@ const translations: Record<Language, Record<string, string>> = {
     meta_path: "路径",
     action_view: "查看",
     action_diff: "对比",
+    action_delete: "删除",
+    action_clear_history: "清空历史",
     gateway_label: "网关状态：",
     dir_config: "配置目录",
     dir_work: "工作目录",
@@ -93,6 +97,8 @@ const translations: Record<Language, Record<string, string>> = {
     no_dir_selected: "尚未选择目录",
     choose_dir: "选择目录",
     empty_tree: "选择目录后显示文件树。",
+    clean_mode: "干净模式",
+    clean_mode_desc: "仅显示文件",
     editor_title: "编辑区",
     editor_empty: "请选择文件进行编辑",
     mode_form: "表单视图",
@@ -108,6 +114,14 @@ const translations: Record<Language, Record<string, string>> = {
     inspector_empty: "选择文件后显示属性。",
     history_empty: "暂无历史版本。",
     viewing_history: "正在查看历史版本。",
+    confirm_clear_history: "确认清空该文件的所有历史版本吗？",
+    confirm_delete_history: "确认删除该历史版本吗？",
+    status_clearing_history: "清理历史版本...",
+    status_deleting_history: "删除历史版本...",
+    status_history_deleted: "历史版本已删除。",
+    status_history_cleared: "已清理 {count} 条历史版本。",
+    status_clear_history_failed: "清理历史失败：{error}",
+    status_delete_history_failed: "删除历史失败：{error}",
     about_title: "About ClawForge",
     about_content: "ClawForge\n开发者：xuyi.dev\n开源地址：https://github.com/08820048/ClawForge",
   },
@@ -144,6 +158,8 @@ const translations: Record<Language, Record<string, string>> = {
     gateway_unavailable: "Unavailable",
     json_empty: "JSON is empty",
     json_ok_live: "JSON valid (live)",
+    json_live_delayed: "JSON valid (large file delayed check)",
+    json_large_mode: "Large JSON switched to lightweight editor to reduce lag.",
     context_reveal: "Show in folder",
     empty_content: "(empty or not loaded)",
     meta_name: "Name",
@@ -151,6 +167,8 @@ const translations: Record<Language, Record<string, string>> = {
     meta_path: "Path",
     action_view: "View",
     action_diff: "Diff",
+    action_delete: "Delete",
+    action_clear_history: "Clear history",
     gateway_label: "Gateway: ",
     dir_config: "Config Directory",
     dir_work: "Work Directory",
@@ -159,6 +177,8 @@ const translations: Record<Language, Record<string, string>> = {
     no_dir_selected: "No directory selected",
     choose_dir: "Choose directory",
     empty_tree: "Choose a directory to show files.",
+    clean_mode: "Clean mode",
+    clean_mode_desc: "Files only",
     editor_title: "Editor",
     editor_empty: "Select a file to edit",
     mode_form: "Form",
@@ -174,6 +194,14 @@ const translations: Record<Language, Record<string, string>> = {
     inspector_empty: "Select a file to view details.",
     history_empty: "No history available.",
     viewing_history: "Viewing a history version.",
+    confirm_clear_history: "Clear all history versions for this file?",
+    confirm_delete_history: "Delete this history version?",
+    status_clearing_history: "Clearing history...",
+    status_deleting_history: "Deleting history version...",
+    status_history_deleted: "History version deleted.",
+    status_history_cleared: "Cleared {count} history versions.",
+    status_clear_history_failed: "Clear history failed: {error}",
+    status_delete_history_failed: "Delete history failed: {error}",
     about_title: "About ClawForge",
     about_content: "ClawForge\nDeveloper: xuyi.dev\nSource: https://github.com/08820048/ClawForge",
   },
@@ -186,6 +214,10 @@ type WorkspaceDetect = {
   source: string;
   exists: boolean;
 };
+
+const LARGE_JSON_THRESHOLD = 300 * 1024;
+const NORMAL_JSON_VALIDATE_DELAY = 300;
+const LARGE_JSON_VALIDATE_DELAY = 1200;
 
 function flattenValue(value: unknown, prefix = ""): FlatEntry[] {
   if (Array.isArray(value)) {
@@ -217,6 +249,11 @@ function isJsonFile(file: FileNode | null) {
 
 function isMarkdownFile(file: FileNode | null) {
   return file?.name.toLowerCase().endsWith(".md") ?? false;
+}
+
+function collectFiles(node: FileNode): FileNode[] {
+  if (node.kind === "file") return [node];
+  return (node.children ?? []).flatMap((child) => collectFiles(child));
 }
 
 function fileIconClass(name: string) {
@@ -268,6 +305,7 @@ function App() {
   const [diffBase, setDiffBase] = useState<string | null>(null);
   const [diffTarget, setDiffTarget] = useState<string | null>(null);
   const [diffLabel, setDiffLabel] = useState<string | null>(null);
+  const [cleanMode, setCleanMode] = useState<boolean>(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Record<string, boolean>>(
     {},
   );
@@ -286,6 +324,10 @@ function App() {
       extension: extension.toUpperCase(),
     };
   }, [selectedFile]);
+  const isLargeJsonFile = useMemo(() => {
+    return isJsonFile(selectedFile) && editedContent.length >= LARGE_JSON_THRESHOLD;
+  }, [selectedFile, editedContent.length]);
+  const flatFiles = useMemo(() => (tree ? collectFiles(tree) : []), [tree]);
 
   const activeContent = viewingPath ? fileContent : editedContent;
   const prevLanguageRef = useRef<Language>(language);
@@ -435,6 +477,9 @@ function App() {
 
   useEffect(() => {
     if (!selectedFile || !isJsonFile(selectedFile)) return;
+    let cancelled = false;
+    const isLarge = editedContent.length >= LARGE_JSON_THRESHOLD;
+    const delay = isLarge ? LARGE_JSON_VALIDATE_DELAY : NORMAL_JSON_VALIDATE_DELAY;
     const handle = window.setTimeout(() => {
       if (editedContent.trim().length === 0) {
         setValidation({
@@ -442,6 +487,32 @@ function App() {
           kind: "json",
           message: t("json_empty"),
         });
+        return;
+      }
+      if (isLarge) {
+        invoke<ValidationResult>("validate_json_content", {
+          content: editedContent,
+        })
+          .then((result) => {
+            if (cancelled) return;
+            if (result.ok) {
+              setValidation({
+                ok: true,
+                kind: "json",
+                message: t("json_live_delayed"),
+              });
+            } else {
+              setValidation(result);
+            }
+          })
+          .catch((error) => {
+            if (cancelled) return;
+            setValidation({
+              ok: false,
+              kind: "json",
+              message: String(error),
+            });
+          });
         return;
       }
       try {
@@ -458,10 +529,13 @@ function App() {
           message: String(error),
         });
       }
-    }, 300);
+    }, delay);
 
-    return () => window.clearTimeout(handle);
-  }, [editedContent, selectedFile]);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [editedContent, selectedFile, language]);
 
   useEffect(() => {
     if (diffBase === null) return;
@@ -549,6 +623,17 @@ function App() {
     setDiffLabel(null);
   }
 
+  async function refreshBackups(path: string) {
+    try {
+      const list = await invoke<BackupEntry[]>("list_backups", { path });
+      setBackups(list);
+      return list;
+    } catch {
+      setBackups([]);
+      return [];
+    }
+  }
+
   async function loadFile(node: FileNode) {
     if (node.kind !== "file") return;
     if (selectedFile && editedContent !== fileContent) {
@@ -596,14 +681,7 @@ function App() {
       setStructured([]);
     }
 
-    try {
-      const list = await invoke<BackupEntry[]>("list_backups", {
-        path: node.path,
-      });
-      setBackups(list);
-    } catch {
-      setBackups([]);
-    }
+    await refreshBackups(node.path);
 
     setDiffBase(null);
     setDiffTarget(null);
@@ -619,10 +697,7 @@ function App() {
         content: editedContent,
       });
       setFileContent(editedContent);
-      const list = await invoke<BackupEntry[]>("list_backups", {
-        path: selectedFile.path,
-      });
-      setBackups(list);
+      await refreshBackups(selectedFile.path);
       setStatus({ tone: "success", message: t("status_saved") });
       return true;
     } catch (error) {
@@ -669,6 +744,53 @@ function App() {
     }
   }
 
+  async function deleteBackup(entry: BackupEntry) {
+    if (!selectedFile) return;
+    const shouldDelete = await confirm(t("confirm_delete_history"));
+    if (!shouldDelete) return;
+
+    setStatus({ tone: "loading", message: t("status_deleting_history") });
+    try {
+      await invoke("delete_backup", { path: entry.path });
+      if (viewingPath === entry.path) {
+        setViewingPath(null);
+      }
+      await refreshBackups(selectedFile.path);
+      setStatus({ tone: "success", message: t("status_history_deleted") });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        message: t("status_delete_history_failed", { error: String(error) }),
+      });
+    }
+  }
+
+  async function clearHistory() {
+    if (!selectedFile || backups.length === 0) return;
+    const shouldClear = await confirm(t("confirm_clear_history"));
+    if (!shouldClear) return;
+
+    setStatus({ tone: "loading", message: t("status_clearing_history") });
+    try {
+      const removed = await invoke<number>("clear_backups", {
+        path: selectedFile.path,
+      });
+      if (viewingPath) {
+        setViewingPath(null);
+      }
+      await refreshBackups(selectedFile.path);
+      setStatus({
+        tone: "success",
+        message: t("status_history_cleared", { count: String(removed) }),
+      });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        message: t("status_clear_history_failed", { error: String(error) }),
+      });
+    }
+  }
+
   function clearDiff() {
     setDiffBase(null);
     setDiffTarget(null);
@@ -682,32 +804,44 @@ function App() {
     }));
   }
 
+  function renderFileButton(node: FileNode, showPath = false) {
+    return (
+      <button
+        key={node.path}
+        className={
+          selectedFile?.path === node.path
+            ? "tree-item tree-item-active"
+            : "tree-item"
+        }
+        onClick={() => loadFile(node)}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setContextMenu({
+            x: event.pageX,
+            y: event.pageY,
+            file: node,
+          });
+        }}
+        type="button"
+      >
+        {renderFileIcon(node.name)}
+        <span className="tree-label">{node.name}</span>
+        {showPath && <span className="tree-path-label">{node.path}</span>}
+      </button>
+    );
+  }
+
+  function renderCleanFileList() {
+    if (!tree || flatFiles.length === 0) {
+      return <div className="empty">{t("empty_tree")}</div>;
+    }
+    return flatFiles.map((file) => renderFileButton(file));
+  }
+
   function renderTree(node: FileNode) {
     if (node.kind === "file") {
-      return (
-        <button
-          key={node.path}
-          className={
-            selectedFile?.path === node.path
-              ? "tree-item tree-item-active"
-              : "tree-item"
-          }
-          onClick={() => loadFile(node)}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setContextMenu({
-              x: event.pageX,
-              y: event.pageY,
-              file: node,
-            });
-          }}
-          type="button"
-        >
-          {renderFileIcon(node.name)}
-          <span className="tree-label">{node.name}</span>
-        </button>
-      );
+      return renderFileButton(node);
     }
 
     const isCollapsed = collapsedDirs[node.path] === true;
@@ -820,12 +954,28 @@ function App() {
                 {workspacePath ?? t("no_dir_selected")}
               </div>
             </div>
-            <button className="link-button" onClick={chooseWorkspace} type="button">
-              {t("choose_dir")}
-            </button>
+            <div className="sidebar-actions">
+              <div className="clean-mode-row">
+                <span className="clean-mode-text">{t("clean_mode")}</span>
+                <button
+                  type="button"
+                  className={cleanMode ? "clean-switch on" : "clean-switch"}
+                  onClick={() => setCleanMode((prev) => !prev)}
+                  aria-pressed={cleanMode}
+                  aria-label={t("clean_mode")}
+                >
+                  <span className="clean-switch-knob" />
+                </button>
+              </div>
+              <button className="link-button" onClick={chooseWorkspace} type="button">
+                {t("choose_dir")}
+              </button>
+            </div>
           </div>
           <div className="tree">
-            {tree ? (
+            {cleanMode ? (
+              renderCleanFileList()
+            ) : tree ? (
               renderTree(tree)
             ) : (
               <div className="empty">{t("empty_tree")}</div>
@@ -882,6 +1032,9 @@ function App() {
                 {validation.message}
               </div>
             )}
+            {selectedFile && isJsonFile(selectedFile) && isLargeJsonFile && (
+              <div className="badge warn">{t("json_large_mode")}</div>
+            )}
             <div className="validation-actions">
               <div className="save-hint">{t("save_hint")}</div>
               <div className="status" data-tone={status.tone}>
@@ -893,13 +1046,22 @@ function App() {
           <div className="viewer">
             {!selectedFile && <div className="empty">{t("no_file_selected")}</div>}
             {selectedFile && mode === "source" && isJsonFile(selectedFile) && (
-              <CodeMirror
-                value={editedContent}
-                height="100%"
-                theme={oneDark}
-                extensions={[jsonLang()]}
-                onChange={(value) => setEditedContent(value)}
-              />
+              isLargeJsonFile ? (
+                <textarea
+                  className="editor"
+                  value={editedContent}
+                  onChange={(event) => setEditedContent(event.target.value)}
+                  spellCheck={false}
+                />
+              ) : (
+                <CodeMirror
+                  value={editedContent}
+                  height="100%"
+                  theme={oneDark}
+                  extensions={[jsonLang()]}
+                  onChange={(value) => setEditedContent(value)}
+                />
+              )
             )}
             {selectedFile && mode === "source" && !isJsonFile(selectedFile) && (
               <textarea
@@ -998,7 +1160,17 @@ function App() {
             <div className="empty">{t("inspector_empty")}</div>
           )}
           <div className="divider" />
-          <div className="panel-title">{t("history_title")}</div>
+          <div className="inspector-section-header">
+            <div className="panel-title">{t("history_title")}</div>
+            <button
+              className="link-button"
+              onClick={clearHistory}
+              type="button"
+              disabled={!selectedFile || backups.length === 0}
+            >
+              {t("action_clear_history")}
+            </button>
+          </div>
           {backups.length === 0 && (
             <div className="empty">{t("history_empty")}</div>
           )}
@@ -1017,6 +1189,13 @@ function App() {
                 type="button"
               >
                 {t("action_diff")}
+              </button>
+              <button
+                className="backup-item ghost"
+                onClick={() => deleteBackup(entry)}
+                type="button"
+              >
+                {t("action_delete")}
               </button>
               <span className="backup-label">{entry.name}</span>
             </div>

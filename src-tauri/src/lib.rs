@@ -377,6 +377,22 @@ fn validate_file(path: String) -> Result<ValidationResult, String> {
     }
 }
 
+#[tauri::command]
+fn validate_json_content(content: String) -> Result<ValidationResult, String> {
+    match serde_json::from_str::<serde_json::Value>(&content) {
+        Ok(_) => Ok(ValidationResult {
+            ok: true,
+            kind: "json".to_string(),
+            message: "JSON 校验通过".to_string(),
+        }),
+        Err(err) => Ok(ValidationResult {
+            ok: false,
+            kind: "json".to_string(),
+            message: err.to_string(),
+        }),
+    }
+}
+
 fn backup_dir_for(file_path: &Path) -> Result<std::path::PathBuf, String> {
     let parent = file_path
         .parent()
@@ -447,10 +463,72 @@ fn list_backups(path: String) -> Result<Vec<BackupEntry>, String> {
     Ok(entries)
 }
 
+fn is_backup_file(path: &Path) -> bool {
+    let in_backup_dir = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .map(|n| n == ".backup")
+        .unwrap_or(false);
+    let has_bak_ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("bak"))
+        .unwrap_or(false);
+    in_backup_dir && has_bak_ext
+}
+
+#[tauri::command]
+fn delete_backup(path: String) -> Result<(), String> {
+    let backup_path = Path::new(&path);
+    if !is_backup_file(backup_path) {
+        return Err("Invalid backup file path.".to_string());
+    }
+    if !backup_path.exists() {
+        return Ok(());
+    }
+    let metadata = fs::metadata(backup_path).map_err(|e| e.to_string())?;
+    if !metadata.is_file() {
+        return Err("Backup path is not a file.".to_string());
+    }
+    fs::remove_file(backup_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn clear_backups(path: String) -> Result<usize, String> {
+    let file_path = Path::new(&path);
+    let backup_dir = backup_dir_for(file_path)?;
+    let file_name = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+
+    let mut removed = 0usize;
+    for entry in fs::read_dir(backup_dir).map_err(|e| e.to_string())? {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let candidate = entry.path();
+        let name = match candidate.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+        if !name.starts_with(file_name) || !is_backup_file(&candidate) {
+            continue;
+        }
+        fs::remove_file(&candidate).map_err(|e| e.to_string())?;
+        removed += 1;
+    }
+
+    Ok(removed)
+}
+
 #[tauri::command]
 async fn gateway_status() -> Result<String, String> {
     let output = tauri::async_runtime::spawn_blocking(|| {
-        Command::new("openclaw")
+        let openclaw_path = resolve_openclaw_path();
+        Command::new(openclaw_path)
             .args(["gateway", "status"])
             .output()
     })
@@ -491,6 +569,35 @@ async fn gateway_status() -> Result<String, String> {
         .unwrap_or_else(|| "未知".to_string());
 
     Ok(runtime_status)
+}
+
+fn resolve_openclaw_path() -> String {
+    if let Ok(path) = env::var("PATH") {
+        for dir in path.split(':') {
+            let candidate = Path::new(dir).join("openclaw");
+            if candidate.exists() {
+                return candidate.to_string_lossy().to_string();
+            }
+        }
+    }
+
+    let common_paths = ["/opt/homebrew/bin/openclaw", "/usr/local/bin/openclaw", "/usr/bin/openclaw"];
+    for path in common_paths {
+        if Path::new(path).exists() {
+            return path.to_string();
+        }
+    }
+
+    if let Ok(output) = Command::new("/usr/bin/which").arg("openclaw").output() {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return path;
+            }
+        }
+    }
+
+    "openclaw".to_string()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -613,8 +720,11 @@ pub fn run() {
             read_file,
             parse_structured,
             validate_file,
+            validate_json_content,
             save_file,
             list_backups,
+            delete_backup,
+            clear_backups,
             gateway_status
         ])
         .run(tauri::generate_context!())

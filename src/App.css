@@ -220,9 +220,60 @@ body {
 
 .sidebar-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.clean-mode-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clean-mode-text {
+  font-size: 12px;
+  color: rgba(16, 16, 22, 0.72);
+}
+
+.clean-switch {
+  width: 42px;
+  height: 24px;
+  border: 1px solid rgba(16, 16, 22, 0.18);
+  border-radius: 999px;
+  background: rgba(16, 16, 22, 0.16);
+  padding: 0;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.clean-switch.on {
+  background: rgba(37, 99, 235, 0.85);
+  border-color: rgba(37, 99, 235, 0.85);
+}
+
+.clean-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.clean-switch.on .clean-switch-knob {
+  transform: translateX(18px);
 }
 
 .link-button {
@@ -237,6 +288,12 @@ body {
 
 .link-button:hover {
   text-decoration: underline;
+}
+
+.link-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 .icon-button {
@@ -411,6 +468,14 @@ body {
   word-break: break-all;
 }
 
+.tree-path-label {
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(16, 16, 22, 0.45);
+  word-break: break-all;
+  text-align: right;
+}
+
 .content-header {
   display: flex;
   justify-content: space-between;
@@ -497,6 +562,11 @@ body {
 .badge.error {
   background: rgba(179, 38, 30, 0.12);
   color: #b3261e;
+}
+
+.badge.warn {
+  background: rgba(245, 158, 11, 0.2);
+  color: #92400e;
 }
 
 .viewer {
@@ -600,6 +670,13 @@ body {
   margin: 16px 0;
 }
 
+.inspector-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .backup-item {
   border: 1px solid rgba(16, 16, 22, 0.08);
   background: transparent;
@@ -612,7 +689,7 @@ body {
 
 .backup-row {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto auto auto 1fr;
   gap: 8px;
   align-items: center;
   margin-top: 8px;
