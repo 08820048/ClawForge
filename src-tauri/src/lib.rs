@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -526,15 +526,10 @@ fn clear_backups(path: String) -> Result<usize, String> {
 
 #[tauri::command]
 async fn gateway_status() -> Result<String, String> {
-    let output = tauri::async_runtime::spawn_blocking(|| {
-        let openclaw_path = resolve_openclaw_path();
-        Command::new(openclaw_path)
-            .args(["gateway", "status"])
-            .output()
-    })
+    let output = tauri::async_runtime::spawn_blocking(run_openclaw_gateway_status)
     .await
     .map_err(|e| format!("Failed to run openclaw: {}", e))?
-    .map_err(|e| format!("Failed to run openclaw: {}", e))?;
+    .map_err(|e| e)?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -555,10 +550,10 @@ async fn gateway_status() -> Result<String, String> {
         .lines()
         .find_map(|line| {
             let trimmed = line.trim();
-            if !trimmed.to_lowercase().contains("runtime:") {
+            let (key, rest) = trimmed.split_once(':')?;
+            if !key.trim().eq_ignore_ascii_case("runtime") {
                 return None;
             }
-            let (_, rest) = trimmed.split_once("Runtime:")?;
             let status = rest.trim();
             if status.is_empty() {
                 return None;
@@ -571,20 +566,32 @@ async fn gateway_status() -> Result<String, String> {
     Ok(runtime_status)
 }
 
-fn resolve_openclaw_path() -> String {
+fn resolve_openclaw_path() -> Option<String> {
     if let Ok(path) = env::var("PATH") {
         for dir in path.split(':') {
             let candidate = Path::new(dir).join("openclaw");
-            if candidate.exists() {
-                return candidate.to_string_lossy().to_string();
+            if candidate.exists() && candidate.is_file() {
+                return Some(candidate.to_string_lossy().to_string());
             }
         }
     }
 
-    let common_paths = ["/opt/homebrew/bin/openclaw", "/usr/local/bin/openclaw", "/usr/bin/openclaw"];
+    let mut common_paths = vec![
+        "/opt/homebrew/bin/openclaw".to_string(),
+        "/usr/local/bin/openclaw".to_string(),
+        "/usr/bin/openclaw".to_string(),
+    ];
+    if let Some(home) = dirs_next::home_dir() {
+        common_paths.push(home.join(".bun/bin/openclaw").to_string_lossy().to_string());
+        common_paths.push(home.join(".local/bin/openclaw").to_string_lossy().to_string());
+        common_paths.push(home.join(".cargo/bin/openclaw").to_string_lossy().to_string());
+        common_paths.push(home.join(".npm-global/bin/openclaw").to_string_lossy().to_string());
+        common_paths.push(home.join(".volta/bin/openclaw").to_string_lossy().to_string());
+        common_paths.push(home.join("bin/openclaw").to_string_lossy().to_string());
+    }
     for path in common_paths {
-        if Path::new(path).exists() {
-            return path.to_string();
+        if Path::new(&path).exists() {
+            return Some(path);
         }
     }
 
@@ -592,12 +599,47 @@ fn resolve_openclaw_path() -> String {
         if output.status.success() {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !path.is_empty() {
-                return path;
+                return Some(path);
             }
         }
     }
 
-    "openclaw".to_string()
+    None
+}
+
+fn run_openclaw_gateway_status() -> Result<Output, String> {
+    let mut errors = Vec::new();
+
+    if let Some(path) = resolve_openclaw_path() {
+        match Command::new(&path).args(["gateway", "status"]).output() {
+            Ok(output) => return Ok(output),
+            Err(error) => errors.push(format!("{} ({})", path, error)),
+        }
+    }
+
+    match Command::new("openclaw").args(["gateway", "status"]).output() {
+        Ok(output) => return Ok(output),
+        Err(error) => errors.push(format!("openclaw ({})", error)),
+    }
+
+    let shell_attempts = ["/bin/zsh", "/bin/bash"];
+    for shell in shell_attempts {
+        if !Path::new(shell).exists() {
+            continue;
+        }
+        match Command::new(shell)
+            .args(["-lc", "openclaw gateway status"])
+            .output()
+        {
+            Ok(output) => return Ok(output),
+            Err(error) => errors.push(format!("{} -lc openclaw ({})", shell, error)),
+        }
+    }
+
+    Err(format!(
+        "Failed to launch openclaw. Attempts: {}",
+        errors.join(" | ")
+    ))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
