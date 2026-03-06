@@ -73,9 +73,6 @@ const translations: Record<Language, Record<string, string>> = {
     status_read_failed: "读取失败：{error}",
     status_diff_building: "生成差异对比...",
     status_diff_failed: "对比失败：{error}",
-    gateway_loading: "获取中...",
-    gateway_unknown: "未知",
-    gateway_unavailable: "不可用",
     json_empty: "JSON 为空",
     json_ok_live: "JSON 校验通过（实时）",
     json_live_delayed: "JSON 校验通过（大文件延迟校验）",
@@ -89,7 +86,6 @@ const translations: Record<Language, Record<string, string>> = {
     action_diff: "对比",
     action_delete: "删除",
     action_clear_history: "清空历史",
-    gateway_label: "网关状态：",
     dir_config: "配置目录",
     dir_work: "工作目录",
     toggle_to_config: "切换到配置目录",
@@ -153,9 +149,6 @@ const translations: Record<Language, Record<string, string>> = {
     status_read_failed: "Read failed: {error}",
     status_diff_building: "Building diff...",
     status_diff_failed: "Diff failed: {error}",
-    gateway_loading: "Loading...",
-    gateway_unknown: "Unknown",
-    gateway_unavailable: "Unavailable",
     json_empty: "JSON is empty",
     json_ok_live: "JSON valid (live)",
     json_live_delayed: "JSON valid (large file delayed check)",
@@ -169,7 +162,6 @@ const translations: Record<Language, Record<string, string>> = {
     action_diff: "Diff",
     action_delete: "Delete",
     action_clear_history: "Clear history",
-    gateway_label: "Gateway: ",
     dir_config: "Config Directory",
     dir_work: "Work Directory",
     toggle_to_config: "Switch to config directory",
@@ -290,10 +282,6 @@ function App() {
   const [fileContent, setFileContent] = useState<string>("");
   const [editedContent, setEditedContent] = useState<string>("");
   const [mode, setMode] = useState<ViewMode>("source");
-  const [gatewayStatus, setGatewayStatus] = useState<string>(
-    translations[language].gateway_loading,
-  );
-  const gatewayLoadingRef = useRef(false);
   const [status, setStatus] = useState<Status>({
     tone: "idle",
     message: "",
@@ -343,17 +331,8 @@ function App() {
   useEffect(() => {
     const prev = prevLanguageRef.current;
     if (prev === language) return;
-    const prevTexts = translations[prev];
-    const nextTexts = translations[language];
-    if (gatewayStatus === prevTexts.gateway_loading) {
-      setGatewayStatus(nextTexts.gateway_loading);
-    } else if (gatewayStatus === prevTexts.gateway_unknown) {
-      setGatewayStatus(nextTexts.gateway_unknown);
-    } else if (gatewayStatus === prevTexts.gateway_unavailable) {
-      setGatewayStatus(nextTexts.gateway_unavailable);
-    }
     prevLanguageRef.current = language;
-  }, [language, gatewayStatus]);
+  }, [language]);
 
   useEffect(() => {
     const autoDetect = async () => {
@@ -403,32 +382,6 @@ function App() {
     };
 
     autoDetect();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchStatus = async () => {
-      if (gatewayLoadingRef.current) return;
-      gatewayLoadingRef.current = true;
-      try {
-        const result = await invoke<string>("gateway_status");
-        if (cancelled) return;
-        setGatewayStatus(result || t("gateway_unknown"));
-      } catch (error) {
-        if (cancelled) return;
-        setGatewayStatus(t("gateway_unavailable"));
-      } finally {
-        gatewayLoadingRef.current = false;
-      }
-    };
-
-    fetchStatus();
-    const timer = window.setInterval(fetchStatus, 30000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
   }, []);
 
   useEffect(() => {
@@ -894,27 +847,6 @@ function App() {
       )}
       <div className="titlebar" data-tauri-drag-region>
         <div className="titlebar-spacer" />
-        <div className="titlebar-right">
-          <div className="gateway-status" data-tauri-drag-region="false">
-            <span
-              className={
-                gatewayStatus.toLowerCase() === "running"
-                  ? "gateway-dot ok"
-                  : "gateway-dot error"
-              }
-            />
-            <span className="gateway-label">{t("gateway_label")}</span>
-            <span
-              className={
-                gatewayStatus.toLowerCase() === "running"
-                  ? "gateway-text ok"
-                  : "gateway-text error"
-              }
-            >
-              {gatewayStatus}
-            </span>
-          </div>
-        </div>
       </div>
       {contextMenu && (
         <div

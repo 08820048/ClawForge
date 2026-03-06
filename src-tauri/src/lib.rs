@@ -1,11 +1,11 @@
 use serde::Serialize;
 use std::fs;
+use std::env;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{env};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::Emitter;
+use tauri::Manager;
 
 const MAX_READ_BYTES: u64 = 1_048_576;
 const MAX_DEPTH: usize = 8;
@@ -524,124 +524,6 @@ fn clear_backups(path: String) -> Result<usize, String> {
     Ok(removed)
 }
 
-#[tauri::command]
-async fn gateway_status() -> Result<String, String> {
-    let output = tauri::async_runtime::spawn_blocking(run_openclaw_gateway_status)
-    .await
-    .map_err(|e| format!("Failed to run openclaw: {}", e))?
-    .map_err(|e| e)?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        let message = if stderr.is_empty() {
-            format!("openclaw exited with status {}", output.status)
-        } else {
-            stderr
-        };
-        return Err(message);
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if stdout.is_empty() {
-        return Ok("未知".to_string());
-    }
-
-    let runtime_status = stdout
-        .lines()
-        .find_map(|line| {
-            let trimmed = line.trim();
-            let (key, rest) = trimmed.split_once(':')?;
-            if !key.trim().eq_ignore_ascii_case("runtime") {
-                return None;
-            }
-            let status = rest.trim();
-            if status.is_empty() {
-                return None;
-            }
-            let short = status.split('(').next().unwrap_or(status).trim();
-            Some(if short.is_empty() { status.to_string() } else { short.to_string() })
-        })
-        .unwrap_or_else(|| "未知".to_string());
-
-    Ok(runtime_status)
-}
-
-fn resolve_openclaw_path() -> Option<String> {
-    if let Ok(path) = env::var("PATH") {
-        for dir in path.split(':') {
-            let candidate = Path::new(dir).join("openclaw");
-            if candidate.exists() && candidate.is_file() {
-                return Some(candidate.to_string_lossy().to_string());
-            }
-        }
-    }
-
-    let mut common_paths = vec![
-        "/opt/homebrew/bin/openclaw".to_string(),
-        "/usr/local/bin/openclaw".to_string(),
-        "/usr/bin/openclaw".to_string(),
-    ];
-    if let Some(home) = dirs_next::home_dir() {
-        common_paths.push(home.join(".bun/bin/openclaw").to_string_lossy().to_string());
-        common_paths.push(home.join(".local/bin/openclaw").to_string_lossy().to_string());
-        common_paths.push(home.join(".cargo/bin/openclaw").to_string_lossy().to_string());
-        common_paths.push(home.join(".npm-global/bin/openclaw").to_string_lossy().to_string());
-        common_paths.push(home.join(".volta/bin/openclaw").to_string_lossy().to_string());
-        common_paths.push(home.join("bin/openclaw").to_string_lossy().to_string());
-    }
-    for path in common_paths {
-        if Path::new(&path).exists() {
-            return Some(path);
-        }
-    }
-
-    if let Ok(output) = Command::new("/usr/bin/which").arg("openclaw").output() {
-        if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                return Some(path);
-            }
-        }
-    }
-
-    None
-}
-
-fn run_openclaw_gateway_status() -> Result<Output, String> {
-    let mut errors = Vec::new();
-
-    if let Some(path) = resolve_openclaw_path() {
-        match Command::new(&path).args(["gateway", "status"]).output() {
-            Ok(output) => return Ok(output),
-            Err(error) => errors.push(format!("{} ({})", path, error)),
-        }
-    }
-
-    match Command::new("openclaw").args(["gateway", "status"]).output() {
-        Ok(output) => return Ok(output),
-        Err(error) => errors.push(format!("openclaw ({})", error)),
-    }
-
-    let shell_attempts = ["/bin/zsh", "/bin/bash"];
-    for shell in shell_attempts {
-        if !Path::new(shell).exists() {
-            continue;
-        }
-        match Command::new(shell)
-            .args(["-lc", "openclaw gateway status"])
-            .output()
-        {
-            Ok(output) => return Ok(output),
-            Err(error) => errors.push(format!("{} -lc openclaw ({})", shell, error)),
-        }
-    }
-
-    Err(format!(
-        "Failed to launch openclaw. Attempts: {}",
-        errors.join(" | ")
-    ))
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -661,6 +543,13 @@ pub fn run() {
             )?;
             let settings_menu =
                 Submenu::with_items(app, "Settings", true, &[&language_item])?;
+            let toggle_devtools_item = MenuItem::with_id(
+                app,
+                "toggle-devtools",
+                "Toggle DevTools",
+                true,
+                Some("Alt+Cmd+I"),
+            )?;
 
             #[cfg(target_os = "macos")]
             let app_menu = Submenu::with_items(
@@ -723,7 +612,11 @@ pub fn run() {
                 app,
                 "View",
                 true,
-                &[&PredefinedMenuItem::fullscreen(app, None)?],
+                &[
+                    &toggle_devtools_item,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::fullscreen(app, None)?,
+                ],
             )?;
 
             #[cfg(not(target_os = "macos"))]
@@ -754,6 +647,15 @@ pub fn run() {
             if event.id() == "open-language-settings" {
                 let _ = app.emit("open-language-settings", ());
             }
+            if event.id() == "toggle-devtools" {
+                if let Some(window) = app.get_webview_window("main") {
+                    if window.is_devtools_open() {
+                        window.close_devtools();
+                    } else {
+                        window.open_devtools();
+                    }
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             detect_workspace,
@@ -766,8 +668,7 @@ pub fn run() {
             save_file,
             list_backups,
             delete_backup,
-            clear_backups,
-            gateway_status
+            clear_backups
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
