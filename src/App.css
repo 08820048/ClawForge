@@ -118,6 +118,44 @@ body {
   flex: 1;
 }
 
+.titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.titlebar-icon-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.titlebar-switch {
+  background: rgba(16, 16, 22, 0.08);
+}
+
+.titlebar-plain-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(16, 16, 22, 0.72);
+  cursor: pointer;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.titlebar-plain-icon:hover {
+  color: rgba(16, 16, 22, 0.96);
+}
+
+.titlebar-plain-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .status {
   font-size: 12px;
   color: rgba(16, 16, 22, 0.6);
@@ -191,20 +229,171 @@ body {
   gap: 8px;
 }
 
-.clean-mode-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.sidebar-search {
+  margin: 12px 0 10px;
 }
 
-.clean-mode-text {
+.sidebar-search-input {
+  width: 100%;
+  border: 1px solid rgba(16, 16, 22, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #101016;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.sidebar-search-input::placeholder {
+  color: rgba(16, 16, 22, 0.42);
+}
+
+.sidebar-search-input:focus {
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background: #ffffff;
+}
+
+.remote-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(244, 241, 236, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 24;
+  padding: 24px;
+}
+
+.remote-card {
+  width: min(560px, calc(100vw - 32px));
+  background: #ffffff;
+  border: 1px solid rgba(16, 16, 22, 0.08);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 18px 42px rgba(16, 16, 22, 0.16);
+}
+
+.remote-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(16, 16, 22, 0.92);
+}
+
+.remote-subtitle {
+  margin-top: 6px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: rgba(16, 16, 22, 0.62);
+}
+
+.remote-feedback {
+  min-height: 22px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(16, 16, 22, 0.6);
+}
+
+.remote-feedback[data-tone="error"] {
+  color: #b3261e;
+}
+
+.remote-feedback[data-tone="success"] {
+  color: #1b5e20;
+}
+
+.remote-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.remote-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   font-size: 12px;
   color: rgba(16, 16, 22, 0.72);
 }
 
+.remote-field-wide {
+  grid-column: 1 / -1;
+}
+
+.remote-input {
+  width: 100%;
+  border: 1px solid rgba(16, 16, 22, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #101016;
+  outline: none;
+}
+
+.remote-input:focus {
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.remote-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.remote-submit {
+  align-self: flex-start;
+}
+
+.remote-actions {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.remote-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(16, 16, 22, 0.14);
+  border-top-color: rgba(37, 99, 235, 0.9);
+  animation: remote-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes remote-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.clean-mode-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.clean-mode-text {
+  font-size: 11px;
+  line-height: 1;
+  color: rgba(16, 16, 22, 0.72);
+  white-space: nowrap;
+}
+
 .clean-switch {
-  width: 42px;
-  height: 24px;
+  width: 34px;
+  height: 20px;
   border: 1px solid rgba(16, 16, 22, 0.18);
   border-radius: 999px;
   background: rgba(16, 16, 22, 0.16);
@@ -223,8 +412,8 @@ body {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -232,7 +421,7 @@ body {
 }
 
 .clean-switch.on .clean-switch-knob {
-  transform: translateX(18px);
+  transform: translateX(14px);
 }
 
 .link-button {
@@ -528,13 +717,67 @@ body {
   color: #92400e;
 }
 
+.jump-error-floating {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 3;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: rgba(248, 113, 113, 0.95);
+  background: rgba(17, 24, 39, 0.72);
+  border-radius: 8px;
+  text-decoration: none;
+  backdrop-filter: blur(2px);
+}
+
+.jump-error-floating:hover {
+  color: #fecaca;
+  text-decoration: underline;
+  background: rgba(17, 24, 39, 0.86);
+}
+
+.jump-error-floating:focus-visible {
+  outline: 2px solid rgba(248, 113, 113, 0.65);
+  outline-offset: 2px;
+}
+
 .viewer {
   flex: 1;
+  position: relative;
   background: #111827;
   border-radius: 14px;
   padding: 16px;
   color: #e5e7eb;
   overflow: auto;
+}
+
+.viewer-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.24);
+  pointer-events: none;
+}
+
+.viewer-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(229, 231, 235, 0.92);
+  font-size: 13px;
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.viewer-spinner {
+  width: 16px;
+  height: 16px;
+  border-color: rgba(229, 231, 235, 0.18);
+  border-top-color: rgba(255, 255, 255, 0.96);
 }
 
 .viewer pre {
@@ -716,6 +959,17 @@ body {
   background: rgba(16, 16, 22, 0.06);
 }
 
+.app-copyright {
+  position: fixed;
+  right: 18px;
+  bottom: 2px;
+  font-size: 11px;
+  color: rgba(16, 16, 22, 0.42);
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+}
+
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
@@ -723,5 +977,9 @@ body {
 
   .inspector {
     order: 3;
+  }
+
+  .remote-grid {
+    grid-template-columns: 1fr;
   }
 }

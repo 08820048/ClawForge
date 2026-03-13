@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { homeDir } from "@tauri-apps/api/path";
@@ -8,10 +8,11 @@ import ReactMarkdown from "react-markdown";
 import CodeMirror from "@uiw/react-codemirror";
 import { json as jsonLang } from "@codemirror/lang-json";
 import { oneDark } from "@codemirror/theme-one-dark";
+import type { EditorView } from "@codemirror/view";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark as prismOneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
-import { ArrowLeftRight, FileJson, Folder, Heading } from "lucide-react";
+import { ArrowLeftRight, FileJson, Folder, Heading, LogOut, Settings } from "lucide-react";
 import "./App.css";
 
 type FileNode = {
@@ -30,6 +31,9 @@ type ValidationResult = {
   ok: boolean;
   kind: string;
   message: string;
+  line?: number;
+  column?: number;
+  detail?: string;
 };
 
 type BackupEntry = {
@@ -40,6 +44,23 @@ type BackupEntry = {
 type FlatEntry = {
   key: string;
   value: string;
+};
+
+type RemoteFormState = {
+  host: string;
+  user: string;
+  port: string;
+  workspacePath: string;
+  identityFile: string;
+  password: string;
+};
+
+type RemoteConnection = {
+  host: string;
+  user: string;
+  port?: number;
+  identityFile?: string;
+  password?: string;
 };
 
 type Language = "zh" | "en";
@@ -65,18 +86,31 @@ const translations: Record<Language, Record<string, string>> = {
     status_scan_done: "扫描完成。",
     status_config_updated: "已更新配置目录，切换后查看。",
     status_scan_failed: "扫描失败：{error}",
+    status_remote_connecting: "连接远程工作区...",
+    status_remote_connected: "远程连接成功。",
+    status_remote_disconnected: "已断开远程连接。",
+    status_remote_missing: "请先填写远程连接信息并连接。",
+    status_remote_failed: "远程连接失败：{error}",
+    remote_connecting_hint: "正在测试 SSH 连接并扫描远程目录...",
+    remote_connecting_button: "连接中...",
     status_saving: "保存中...",
     status_saved: "已保存并创建备份",
     status_save_failed: "保存失败：{error}",
     status_read_backup: "读取历史版本...",
     status_reading_file: "读取文件...",
+    file_loading_hint: "正在读取文件内容...",
     status_read_failed: "读取失败：{error}",
     status_diff_building: "生成差异对比...",
     status_diff_failed: "对比失败：{error}",
     json_empty: "JSON 为空",
     json_ok_live: "JSON 校验通过（实时）",
+    yaml_ok_live: "YAML 校验通过（实时）",
     json_live_delayed: "JSON 校验通过（大文件延迟校验）",
+    validation_error_with_location: "语法错误（第 {line} 行，第 {column} 列）：{error}",
+    jump_to_error: "错误定位",
     json_large_mode: "大 JSON 文件已切换轻量编辑模式，以减少卡顿。",
+    search_files: "搜索文件名或路径",
+    search_empty: "没有匹配的文件。",
     context_reveal: "在文件夹中显示",
     empty_content: "(空文件或未加载)",
     meta_name: "名称",
@@ -88,11 +122,27 @@ const translations: Record<Language, Record<string, string>> = {
     action_clear_history: "清空历史",
     dir_config: "配置目录",
     dir_work: "工作目录",
+    dir_remote: "远程目录",
     toggle_to_config: "切换到配置目录",
     toggle_to_work: "切换到工作目录",
+    source_local: "本地",
+    source_remote: "远程",
     no_dir_selected: "尚未选择目录",
     choose_dir: "选择目录",
+    connect_remote: "连接远程",
+    edit_remote: "连接设置",
+    close_remote_modal: "取消",
+    disconnect_remote: "断开远程",
     empty_tree: "选择目录后显示文件树。",
+    remote_empty: "点击右上角的“远程”打开连接面板。",
+    remote_connect_title: "远程 SSH 连接",
+    remote_connect_desc: "填写服务器信息后加载远程目录，并在保存时同步到远程。",
+    remote_host: "主机",
+    remote_user: "用户",
+    remote_port: "端口",
+    remote_path: "远程目录",
+    remote_identity: "私钥文件（可选）",
+    remote_password: "密码",
     clean_mode: "干净模式",
     clean_mode_desc: "仅显示文件",
     editor_title: "编辑区",
@@ -141,18 +191,31 @@ const translations: Record<Language, Record<string, string>> = {
     status_scan_done: "Scan completed.",
     status_config_updated: "Config directory updated. Switch to view.",
     status_scan_failed: "Scan failed: {error}",
+    status_remote_connecting: "Connecting remote workspace...",
+    status_remote_connected: "Remote connection established.",
+    status_remote_disconnected: "Remote connection closed.",
+    status_remote_missing: "Fill in the remote connection and connect first.",
+    status_remote_failed: "Remote connection failed: {error}",
+    remote_connecting_hint: "Testing the SSH connection and scanning the remote directory...",
+    remote_connecting_button: "Connecting...",
     status_saving: "Saving...",
     status_saved: "Saved and backup created",
     status_save_failed: "Save failed: {error}",
     status_read_backup: "Loading backup...",
     status_reading_file: "Reading file...",
+    file_loading_hint: "Loading file contents...",
     status_read_failed: "Read failed: {error}",
     status_diff_building: "Building diff...",
     status_diff_failed: "Diff failed: {error}",
     json_empty: "JSON is empty",
     json_ok_live: "JSON valid (live)",
+    yaml_ok_live: "YAML valid (live)",
     json_live_delayed: "JSON valid (large file delayed check)",
+    validation_error_with_location: "Syntax error at line {line}, column {column}: {error}",
+    jump_to_error: "Locate error",
     json_large_mode: "Large JSON switched to lightweight editor to reduce lag.",
+    search_files: "Search file name or path",
+    search_empty: "No matching files.",
     context_reveal: "Show in folder",
     empty_content: "(empty or not loaded)",
     meta_name: "Name",
@@ -164,11 +227,28 @@ const translations: Record<Language, Record<string, string>> = {
     action_clear_history: "Clear history",
     dir_config: "Config Directory",
     dir_work: "Work Directory",
+    dir_remote: "Remote Directory",
     toggle_to_config: "Switch to config directory",
     toggle_to_work: "Switch to work directory",
+    source_local: "Local",
+    source_remote: "Remote",
     no_dir_selected: "No directory selected",
     choose_dir: "Choose directory",
+    connect_remote: "Connect remote",
+    edit_remote: "Connection settings",
+    close_remote_modal: "Cancel",
+    disconnect_remote: "Disconnect",
     empty_tree: "Choose a directory to show files.",
+    remote_empty: "Click \"Remote\" in the top-right corner to open the connection panel.",
+    remote_connect_title: "Remote SSH Connection",
+    remote_connect_desc:
+      "Enter the server details to load the remote directory and sync saves back to the server.",
+    remote_host: "Host",
+    remote_user: "User",
+    remote_port: "Port",
+    remote_path: "Remote path",
+    remote_identity: "Identity file (optional)",
+    remote_password: "Password",
     clean_mode: "Clean mode",
     clean_mode_desc: "Files only",
     editor_title: "Editor",
@@ -200,6 +280,7 @@ const translations: Record<Language, Record<string, string>> = {
 };
 
 type ViewMode = "form" | "source" | "preview";
+type SourceMode = "local" | "remote";
 
 type WorkspaceDetect = {
   path: string | null;
@@ -243,6 +324,16 @@ function isMarkdownFile(file: FileNode | null) {
   return file?.name.toLowerCase().endsWith(".md") ?? false;
 }
 
+function isYamlFile(file: FileNode | null) {
+  return file
+    ? file.name.toLowerCase().endsWith(".yaml") || file.name.toLowerCase().endsWith(".yml")
+    : false;
+}
+
+function supportsErrorJump(kind: string) {
+  return kind === "json" || kind === "yaml" || kind === "yml";
+}
+
 function collectFiles(node: FileNode): FileNode[] {
   if (node.kind === "file") return [node];
   return (node.children ?? []).flatMap((child) => collectFiles(child));
@@ -273,12 +364,53 @@ function App() {
   const [showLanguageModal, setShowLanguageModal] = useState<boolean>(() => {
     return localStorage.getItem("clawforge.language") === null;
   });
+  const [showRemoteModal, setShowRemoteModal] = useState<boolean>(false);
+  const [remoteConnecting, setRemoteConnecting] = useState<boolean>(false);
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [configPath, setConfigPath] = useState<string | null>(null);
   const [workPath, setWorkPath] = useState<string | null>(null);
+  const [sourceMode, setSourceMode] = useState<SourceMode>(() => {
+    const stored = localStorage.getItem("clawforge.sourceMode");
+    return stored === "remote" ? "remote" : "local";
+  });
   const [dirMode, setDirMode] = useState<"config" | "work">("config");
+  const [remoteForm, setRemoteForm] = useState<RemoteFormState>(() => {
+    const stored = localStorage.getItem("clawforge.remoteForm");
+    if (!stored) {
+      return {
+        host: "",
+        user: "",
+        port: "22",
+        workspacePath: "",
+        identityFile: "",
+        password: "",
+      };
+    }
+    try {
+      const parsed = JSON.parse(stored) as Partial<RemoteFormState>;
+      return {
+        host: parsed.host ?? "",
+        user: parsed.user ?? "",
+        port: parsed.port ?? "22",
+        workspacePath: parsed.workspacePath ?? "",
+        identityFile: parsed.identityFile ?? "",
+        password: parsed.password ?? "",
+      };
+    } catch {
+      return {
+        host: "",
+        user: "",
+        port: "22",
+        workspacePath: "",
+        identityFile: "",
+        password: "",
+      };
+    }
+  });
+  const [remoteConnection, setRemoteConnection] = useState<RemoteConnection | null>(null);
   const [tree, setTree] = useState<FileNode | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [loadingFilePath, setLoadingFilePath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [editedContent, setEditedContent] = useState<string>("");
   const [mode, setMode] = useState<ViewMode>("source");
@@ -294,6 +426,7 @@ function App() {
   const [diffTarget, setDiffTarget] = useState<string | null>(null);
   const [diffLabel, setDiffLabel] = useState<string | null>(null);
   const [cleanMode, setCleanMode] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [collapsedDirs, setCollapsedDirs] = useState<Record<string, boolean>>(
     {},
   );
@@ -302,6 +435,9 @@ function App() {
     y: number;
     file: FileNode;
   } | null>(null);
+  const codeMirrorViewRef = useRef<EditorView | null>(null);
+  const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const fileMeta = useMemo(() => {
     if (!selectedFile) return null;
@@ -316,6 +452,18 @@ function App() {
     return isJsonFile(selectedFile) && editedContent.length >= LARGE_JSON_THRESHOLD;
   }, [selectedFile, editedContent.length]);
   const flatFiles = useMemo(() => (tree ? collectFiles(tree) : []), [tree]);
+  const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
+  const visibleFiles = useMemo(() => {
+    if (!normalizedSearchQuery) return flatFiles;
+    return flatFiles.filter((file) => {
+      const name = file.name.toLowerCase();
+      const path = file.path.toLowerCase();
+      return name.includes(normalizedSearchQuery) || path.includes(normalizedSearchQuery);
+    });
+  }, [flatFiles, normalizedSearchQuery]);
+  const isRemoteSource = sourceMode === "remote";
+  const isFileLoading = loadingFilePath !== null;
+  const activeFilePath = loadingFilePath ?? selectedFile?.path ?? null;
 
   const activeContent = viewingPath ? fileContent : editedContent;
   const prevLanguageRef = useRef<Language>(language);
@@ -329,59 +477,38 @@ function App() {
   };
 
   useEffect(() => {
+    localStorage.setItem("clawforge.sourceMode", sourceMode);
+  }, [sourceMode]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "clawforge.remoteForm",
+      JSON.stringify({
+        host: remoteForm.host,
+        user: remoteForm.user,
+        port: remoteForm.port,
+        workspacePath: remoteForm.workspacePath,
+        identityFile: remoteForm.identityFile,
+        password: remoteForm.password,
+      }),
+    );
+  }, [remoteForm]);
+
+  useEffect(() => {
+    if (sourceMode === "remote" && !remoteConnection) {
+      setShowRemoteModal(true);
+    }
+  }, []);
+
+  useEffect(() => {
     const prev = prevLanguageRef.current;
     if (prev === language) return;
     prevLanguageRef.current = language;
   }, [language]);
 
   useEffect(() => {
-    const autoDetect = async () => {
-      setStatus({ tone: "loading", message: t("status_auto_detect") });
-      try {
-        const result = await invoke<WorkspaceDetect>("detect_workspace");
-        if (result.path && result.exists) {
-          setConfigPath(result.path);
-          if (dirMode === "config") {
-            await scanWorkspace(
-              result.path,
-              t("status_auto_detected", { source: result.source }),
-            );
-          } else {
-            setStatus({
-              tone: "success",
-            message: t("status_detected_config", { path: result.path }),
-            });
-          }
-        } else if (result.path && !result.exists) {
-          setConfigPath(result.path);
-          if (dirMode === "config") {
-            setWorkspacePath(result.path);
-            setTree(null);
-            setStatus({
-              tone: "error",
-            message: t("status_path_missing", { path: result.path }),
-            });
-          } else {
-            setStatus({
-              tone: "error",
-              message: t("status_missing_config", { path: result.path }),
-            });
-          }
-        } else {
-          setStatus({
-            tone: "idle",
-            message: t("status_no_default"),
-          });
-        }
-      } catch (error) {
-        setStatus({
-          tone: "error",
-          message: t("status_auto_detect_failed", { error: String(error) }),
-        });
-      }
-    };
-
-    autoDetect();
+    if (sourceMode === "remote") return;
+    void restoreLocalWorkspace(true);
   }, []);
 
   useEffect(() => {
@@ -429,59 +556,62 @@ function App() {
   };
 
   useEffect(() => {
-    if (!selectedFile || !isJsonFile(selectedFile)) return;
+    if (!selectedFile || (!isJsonFile(selectedFile) && !isYamlFile(selectedFile))) return;
     let cancelled = false;
+    const isJson = isJsonFile(selectedFile);
     const isLarge = editedContent.length >= LARGE_JSON_THRESHOLD;
-    const delay = isLarge ? LARGE_JSON_VALIDATE_DELAY : NORMAL_JSON_VALIDATE_DELAY;
+    const delay = isJson && isLarge ? LARGE_JSON_VALIDATE_DELAY : NORMAL_JSON_VALIDATE_DELAY;
     const handle = window.setTimeout(() => {
-      if (editedContent.trim().length === 0) {
+      if (isJson && editedContent.trim().length === 0) {
         setValidation({
           ok: false,
           kind: "json",
           message: t("json_empty"),
+          line: undefined,
+          column: undefined,
+          detail: undefined,
         });
         return;
       }
-      if (isLarge) {
-        invoke<ValidationResult>("validate_json_content", {
-          content: editedContent,
-        })
-          .then((result) => {
-            if (cancelled) return;
-            if (result.ok) {
-              setValidation({
-                ok: true,
-                kind: "json",
-                message: t("json_live_delayed"),
-              });
-            } else {
-              setValidation(result);
-            }
+      const validationRequest = isJson
+        ? invoke<ValidationResult>("validate_json_content", {
+            content: editedContent,
           })
-          .catch((error) => {
-            if (cancelled) return;
-            setValidation({
-              ok: false,
-              kind: "json",
-              message: String(error),
-            });
+        : invoke<ValidationResult>("validate_content", {
+            pathHint: selectedFile.path,
+            content: editedContent,
           });
-        return;
-      }
-      try {
-        JSON.parse(editedContent);
-        setValidation({
-          ok: true,
-          kind: "json",
-          message: t("json_ok_live"),
+      validationRequest
+        .then((result) => {
+          if (cancelled) return;
+          if (result.ok) {
+            setValidation({
+              ok: true,
+              kind: result.kind,
+              message: isJson
+                ? isLarge
+                  ? t("json_live_delayed")
+                  : t("json_ok_live")
+                : t("yaml_ok_live"),
+              line: undefined,
+              column: undefined,
+              detail: undefined,
+            });
+          } else {
+            setValidation(result);
+          }
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          setValidation({
+            ok: false,
+            kind: isJson ? "json" : "yaml",
+            message: String(error),
+            line: undefined,
+            column: undefined,
+            detail: undefined,
+          });
         });
-      } catch (error) {
-        setValidation({
-          ok: false,
-          kind: "json",
-          message: String(error),
-        });
-      }
     }, delay);
 
     return () => {
@@ -495,7 +625,243 @@ function App() {
     setDiffTarget(editedContent);
   }, [editedContent, diffBase]);
 
+  function buildRemoteConnectionPayload(): RemoteConnection | null {
+    const host = remoteForm.host.trim();
+    const user = remoteForm.user.trim();
+    const workspace = remoteForm.workspacePath.trim();
+    if (!host || !user || !workspace) {
+      return null;
+    }
+
+    const portValue = remoteForm.port.trim();
+    const port = portValue ? Number(portValue) : undefined;
+    return {
+      host,
+      user,
+      port: port && Number.isFinite(port) ? port : undefined,
+      identityFile: remoteForm.identityFile.trim() || undefined,
+      password: remoteForm.password || undefined,
+    };
+  }
+
+  async function analyzeContent(pathHint: string, content: string) {
+    try {
+      const result = await invoke<ValidationResult>("validate_content", {
+        pathHint,
+        content,
+      });
+      setValidation(result);
+    } catch (error) {
+      setValidation({ ok: false, kind: "unknown", message: String(error) });
+    }
+
+    try {
+      const structuredValue = await invoke<unknown>("parse_structured_content", {
+        pathHint,
+        content,
+      });
+      setStructured(flattenValue(structuredValue));
+    } catch {
+      setStructured([]);
+    }
+  }
+
+  function formatValidationMessage(result: ValidationResult) {
+    if (!result.ok && supportsErrorJump(result.kind) && result.line !== undefined && result.column !== undefined) {
+      return t("validation_error_with_location", {
+        line: String(result.line),
+        column: String(result.column),
+        error: result.detail ?? result.message,
+      });
+    }
+    return result.message;
+  }
+
+  const showJumpToValidationError = Boolean(
+    validation
+      && !validation.ok
+      && supportsErrorJump(validation.kind)
+      && validation.line !== undefined
+      && validation.column !== undefined
+      && selectedFile
+      && mode === "source"
+      && (isJsonFile(selectedFile) || isYamlFile(selectedFile)),
+  );
+
+  function getOffsetFromLineColumn(content: string, line: number, column: number) {
+    const lines = content.split("\n");
+    let offset = 0;
+    for (let index = 0; index < lines.length; index += 1) {
+      if (index + 1 === line) {
+        return offset + Math.max(0, column - 1);
+      }
+      offset += lines[index].length + 1;
+    }
+    return content.length;
+  }
+
+  function focusValidationErrorAtLocation(line: number, column: number) {
+    const offset = Math.min(
+      getOffsetFromLineColumn(editedContent, line, column),
+      editedContent.length,
+    );
+    const head = Math.min(offset + 1, editedContent.length);
+
+    if (selectedFile && isJsonFile(selectedFile) && !isLargeJsonFile && codeMirrorViewRef.current) {
+      codeMirrorViewRef.current.dispatch({
+        selection: { anchor: offset, head },
+        scrollIntoView: true,
+      });
+      codeMirrorViewRef.current.focus();
+      return;
+    }
+
+    if (editorTextareaRef.current) {
+      editorTextareaRef.current.focus();
+      editorTextareaRef.current.setSelectionRange(offset, head);
+    }
+  }
+
+  function jumpToValidationError() {
+    if (
+      !validation
+      || validation.ok
+      || !supportsErrorJump(validation.kind)
+      || validation.line === undefined
+      || validation.column === undefined
+    ) {
+      return;
+    }
+
+    if (mode !== "source") {
+      setMode("source");
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          focusValidationErrorAtLocation(validation.line!, validation.column!);
+        });
+      });
+      return;
+    }
+
+    focusValidationErrorAtLocation(validation.line, validation.column);
+  }
+
+  async function readCurrentFile(path: string) {
+    if (isRemoteSource) {
+      if (!remoteConnection) {
+        throw new Error(t("status_remote_missing"));
+      }
+      return invoke<string>("read_remote_file", {
+        connection: remoteConnection,
+        path,
+      });
+    }
+
+    return invoke<string>("read_file", { path });
+  }
+
+  async function readBackupFile(path: string) {
+    return readCurrentFile(path);
+  }
+
+  async function refreshBackups(path: string) {
+    try {
+      const list = isRemoteSource
+        ? await invoke<BackupEntry[]>("list_remote_backups", {
+            connection: remoteConnection,
+            path,
+          })
+        : await invoke<BackupEntry[]>("list_backups", { path });
+      setBackups(list);
+      return list;
+    } catch {
+      setBackups([]);
+      return [];
+    }
+  }
+
+  async function scanRemoteWorkspace(successMessage: string) {
+    const connection = buildRemoteConnectionPayload();
+    if (!connection) {
+      setStatus({ tone: "error", message: t("status_remote_missing") });
+      setTree(null);
+      setWorkspacePath(null);
+      return false;
+    }
+
+    setStatus({ tone: "loading", message: t("status_remote_connecting") });
+    setRemoteConnecting(true);
+    resetEditor();
+
+    try {
+      const result = await invoke<FileNode>("scan_remote_workspace", {
+        connection,
+        path: remoteForm.workspacePath.trim(),
+      });
+      setRemoteConnection(connection);
+      setSourceMode("remote");
+      setTree(result);
+      setWorkspacePath(`${connection.user}@${connection.host}:${result.path}`);
+      setStatus({ tone: "success", message: successMessage });
+      return true;
+    } catch (error) {
+      setRemoteConnection(null);
+      setTree(null);
+      setWorkspacePath(null);
+      setStatus({
+        tone: "error",
+        message: t("status_remote_failed", { error: String(error) }),
+      });
+      return false;
+    } finally {
+      setRemoteConnecting(false);
+    }
+  }
+
+  async function switchSource(nextMode: SourceMode) {
+    if (nextMode === sourceMode) return;
+    setSourceMode(nextMode);
+    if (nextMode === "local") {
+      setShowRemoteModal(false);
+    }
+    resetEditor();
+    setTree(null);
+    setWorkspacePath(null);
+    setBackups([]);
+
+    if (nextMode === "remote") {
+      setShowRemoteModal(true);
+      return;
+    }
+    await restoreLocalWorkspace(true);
+  }
+
+  function disconnectRemote() {
+    if (remoteConnecting) return;
+    setRemoteConnection(null);
+    setTree(null);
+    setWorkspacePath(null);
+    resetEditor();
+    setStatus({ tone: "idle", message: t("status_remote_disconnected") });
+  }
+
+  async function openRemotePanel() {
+    if (sourceMode !== "remote") {
+      await switchSource("remote");
+      return;
+    }
+    setShowRemoteModal(true);
+  }
+
+  async function connectRemote() {
+    const connected = await scanRemoteWorkspace(t("status_remote_connected"));
+    if (connected) {
+      setShowRemoteModal(false);
+    }
+  }
+
   async function chooseWorkspace() {
+    if (isRemoteSource) return;
     setStatus({ tone: "loading", message: t("status_choose_dir") });
     const selected = await open({ directory: true, multiple: false });
     if (!selected || typeof selected !== "string") {
@@ -530,6 +896,52 @@ function App() {
     }
   }
 
+  async function restoreLocalWorkspace(useAutoDetectedMessage = false) {
+    if (dirMode === "work") {
+      const path = await resolveWorkPath();
+      await scanWorkspace(path, t("status_scan_done"));
+      return;
+    }
+
+    setStatus({ tone: "loading", message: t("status_auto_detect") });
+    try {
+      const result = await invoke<WorkspaceDetect>("detect_workspace");
+      if (result.path && result.exists) {
+        setConfigPath(result.path);
+        await scanWorkspace(
+          result.path,
+          useAutoDetectedMessage
+            ? t("status_auto_detected", { source: result.source })
+            : t("status_scan_done"),
+        );
+        return;
+      }
+
+      if (result.path && !result.exists) {
+        setConfigPath(result.path);
+        setWorkspacePath(result.path);
+        setTree(null);
+        setStatus({
+          tone: "error",
+          message: t("status_path_missing", { path: result.path }),
+        });
+        return;
+      }
+
+      setWorkspacePath(null);
+      setTree(null);
+      setStatus({
+        tone: "idle",
+        message: t("status_no_default"),
+      });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        message: t("status_auto_detect_failed", { error: String(error) }),
+      });
+    }
+  }
+
   async function resolveWorkPath() {
     if (workPath) return workPath;
     const home = await homeDir();
@@ -540,6 +952,7 @@ function App() {
   }
 
   async function toggleDirectoryMode() {
+    if (isRemoteSource) return;
     const nextMode = dirMode === "config" ? "work" : "config";
     setDirMode(nextMode);
     if (nextMode === "work") {
@@ -567,6 +980,7 @@ function App() {
 
   function resetEditor() {
     setSelectedFile(null);
+    setLoadingFilePath(null);
     setFileContent("");
     setEditedContent("");
     setBackups([]);
@@ -574,17 +988,6 @@ function App() {
     setDiffBase(null);
     setDiffTarget(null);
     setDiffLabel(null);
-  }
-
-  async function refreshBackups(path: string) {
-    try {
-      const list = await invoke<BackupEntry[]>("list_backups", { path });
-      setBackups(list);
-      return list;
-    } catch {
-      setBackups([]);
-      return [];
-    }
   }
 
   async function loadFile(node: FileNode) {
@@ -598,44 +1001,28 @@ function App() {
         }
       }
     }
-    setSelectedFile(node);
+    setLoadingFilePath(node.path);
     setStatus({ tone: "loading", message: t("status_reading_file") });
     setViewingPath(null);
 
     try {
-      const content = await invoke<string>("read_file", { path: node.path });
+      const content = await readCurrentFile(node.path);
+      setSelectedFile(node);
       setFileContent(content);
       setEditedContent(content);
       setStatus({ tone: "idle", message: "" });
+      void analyzeContent(node.path, content);
+      void refreshBackups(node.path);
     } catch (error) {
-      setFileContent("");
-      setEditedContent("");
       setStatus({
         tone: "error",
         message: t("status_read_failed", { error: String(error) }),
       });
+      setLoadingFilePath(null);
+      return;
     }
 
-    try {
-      const result = await invoke<ValidationResult>("validate_file", {
-        path: node.path,
-      });
-      setValidation(result);
-    } catch (error) {
-      setValidation({ ok: false, kind: "unknown", message: String(error) });
-    }
-
-    try {
-      const structuredValue = await invoke<unknown>("parse_structured", {
-        path: node.path,
-      });
-      setStructured(flattenValue(structuredValue));
-    } catch {
-      setStructured([]);
-    }
-
-    await refreshBackups(node.path);
-
+    setLoadingFilePath(null);
     setDiffBase(null);
     setDiffTarget(null);
     setDiffLabel(null);
@@ -645,11 +1032,20 @@ function App() {
     if (!selectedFile) return false;
     setStatus({ tone: "loading", message: t("status_saving") });
     try {
-      await invoke("save_file", {
-        path: selectedFile.path,
-        content: editedContent,
-      });
+      if (isRemoteSource) {
+        await invoke("save_remote_file", {
+          connection: remoteConnection,
+          path: selectedFile.path,
+          content: editedContent,
+        });
+      } else {
+        await invoke("save_file", {
+          path: selectedFile.path,
+          content: editedContent,
+        });
+      }
       setFileContent(editedContent);
+      await analyzeContent(selectedFile.path, editedContent);
       await refreshBackups(selectedFile.path);
       setStatus({ tone: "success", message: t("status_saved") });
       return true;
@@ -665,7 +1061,7 @@ function App() {
   async function viewBackup(entry: BackupEntry) {
     setStatus({ tone: "loading", message: t("status_read_backup") });
     try {
-      const content = await invoke<string>("read_file", { path: entry.path });
+      const content = await readBackupFile(entry.path);
       setFileContent(content);
       setViewingPath(entry.path);
       setStatus({ tone: "idle", message: "" });
@@ -681,9 +1077,7 @@ function App() {
     if (!selectedFile) return;
     setStatus({ tone: "loading", message: t("status_diff_building") });
     try {
-      const backupContent = await invoke<string>("read_file", {
-        path: entry.path,
-      });
+      const backupContent = await readBackupFile(entry.path);
       setDiffBase(backupContent);
       setDiffTarget(editedContent);
       setDiffLabel(entry.name);
@@ -704,7 +1098,14 @@ function App() {
 
     setStatus({ tone: "loading", message: t("status_deleting_history") });
     try {
-      await invoke("delete_backup", { path: entry.path });
+      if (isRemoteSource) {
+        await invoke("delete_remote_backup", {
+          connection: remoteConnection,
+          path: entry.path,
+        });
+      } else {
+        await invoke("delete_backup", { path: entry.path });
+      }
       if (viewingPath === entry.path) {
         setViewingPath(null);
       }
@@ -725,9 +1126,14 @@ function App() {
 
     setStatus({ tone: "loading", message: t("status_clearing_history") });
     try {
-      const removed = await invoke<number>("clear_backups", {
-        path: selectedFile.path,
-      });
+      const removed = isRemoteSource
+        ? await invoke<number>("clear_remote_backups", {
+            connection: remoteConnection,
+            path: selectedFile.path,
+          })
+        : await invoke<number>("clear_backups", {
+            path: selectedFile.path,
+          });
       if (viewingPath) {
         setViewingPath(null);
       }
@@ -762,12 +1168,13 @@ function App() {
       <button
         key={node.path}
         className={
-          selectedFile?.path === node.path
+          selectedFile?.path === node.path || loadingFilePath === node.path
             ? "tree-item tree-item-active"
             : "tree-item"
         }
         onClick={() => loadFile(node)}
         onContextMenu={(event) => {
+          if (isRemoteSource) return;
           event.preventDefault();
           event.stopPropagation();
           setContextMenu({
@@ -782,6 +1189,133 @@ function App() {
         <span className="tree-label">{node.name}</span>
         {showPath && <span className="tree-path-label">{node.path}</span>}
       </button>
+    );
+  }
+
+  function renderRemoteModal() {
+    return (
+      <div
+        className="remote-modal"
+        onClick={() => {
+          if (!remoteConnecting) {
+            setShowRemoteModal(false);
+          }
+        }}
+      >
+        <div className="remote-card" onClick={(event) => event.stopPropagation()}>
+          <div className="remote-title">{t("remote_connect_title")}</div>
+          <div className="remote-subtitle">{t("remote_connect_desc")}</div>
+          <div className="remote-grid">
+            <label className="remote-field">
+              <span>{t("remote_host")}</span>
+              <input
+                className="remote-input"
+                disabled={remoteConnecting}
+                value={remoteForm.host}
+                onChange={(event) =>
+                  setRemoteForm((prev) => ({ ...prev, host: event.target.value }))
+                }
+                placeholder="example.com"
+              />
+            </label>
+            <label className="remote-field">
+              <span>{t("remote_user")}</span>
+              <input
+                className="remote-input"
+                disabled={remoteConnecting}
+                value={remoteForm.user}
+                onChange={(event) =>
+                  setRemoteForm((prev) => ({ ...prev, user: event.target.value }))
+                }
+                placeholder="root"
+              />
+            </label>
+            <label className="remote-field">
+              <span>{t("remote_port")}</span>
+              <input
+                className="remote-input"
+                disabled={remoteConnecting}
+                value={remoteForm.port}
+                onChange={(event) =>
+                  setRemoteForm((prev) => ({ ...prev, port: event.target.value }))
+                }
+                placeholder="22"
+              />
+            </label>
+            <label className="remote-field">
+              <span>{t("remote_password")}</span>
+              <input
+                className="remote-input"
+                type="password"
+                disabled={remoteConnecting}
+                value={remoteForm.password}
+                onChange={(event) =>
+                  setRemoteForm((prev) => ({ ...prev, password: event.target.value }))
+                }
+                placeholder="••••••••"
+              />
+            </label>
+            <label className="remote-field remote-field-wide">
+              <span>{t("remote_path")}</span>
+              <input
+                className="remote-input"
+                disabled={remoteConnecting}
+                value={remoteForm.workspacePath}
+                onChange={(event) =>
+                  setRemoteForm((prev) => ({
+                    ...prev,
+                    workspacePath: event.target.value,
+                  }))
+                }
+                placeholder="~/workspace"
+              />
+            </label>
+            <label className="remote-field remote-field-wide">
+              <span>{t("remote_identity")}</span>
+              <input
+                className="remote-input"
+                disabled={remoteConnecting}
+                value={remoteForm.identityFile}
+                onChange={(event) =>
+                  setRemoteForm((prev) => ({
+                    ...prev,
+                    identityFile: event.target.value,
+                  }))
+                }
+                placeholder="~/.ssh/id_rsa"
+              />
+            </label>
+          </div>
+          <div className="remote-feedback" data-tone={status.tone}>
+            {remoteConnecting ? (
+              <>
+                <span className="remote-spinner" aria-hidden />
+                <span>{t("remote_connecting_hint")}</span>
+              </>
+            ) : (
+              status.message
+            )}
+          </div>
+          <div className="remote-actions">
+            <button
+              type="button"
+              className="ghost"
+              disabled={remoteConnecting}
+              onClick={() => setShowRemoteModal(false)}
+            >
+              {t("close_remote_modal")}
+            </button>
+            <button
+              type="button"
+              className="primary remote-submit"
+              onClick={connectRemote}
+              disabled={remoteConnecting}
+            >
+              {remoteConnecting ? t("remote_connecting_button") : t("connect_remote")}
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -845,10 +1379,53 @@ function App() {
           </div>
         </div>
       )}
-      <div className="titlebar" data-tauri-drag-region>
-        <div className="titlebar-spacer" />
+      {showRemoteModal && renderRemoteModal()}
+      <div className="titlebar">
+        <div className="titlebar-spacer" data-tauri-drag-region />
+        <div className="titlebar-actions">
+          <div className="mode-switch titlebar-switch">
+            <button
+              type="button"
+              className={sourceMode === "local" ? "mode active" : "mode"}
+              onClick={() => switchSource("local")}
+            >
+              {t("source_local")}
+            </button>
+            <button
+              type="button"
+              className={sourceMode === "remote" ? "mode active" : "mode"}
+              onClick={openRemotePanel}
+            >
+              {t("source_remote")}
+            </button>
+          </div>
+          {isRemoteSource && (
+            <div className="titlebar-icon-actions">
+              <button
+                type="button"
+                className="titlebar-plain-icon"
+                onClick={openRemotePanel}
+                aria-label={remoteConnection ? t("edit_remote") : t("connect_remote")}
+                title={remoteConnection ? t("edit_remote") : t("connect_remote")}
+              >
+                <Settings size={15} strokeWidth={1.7} />
+              </button>
+              {remoteConnection && (
+                <button
+                  type="button"
+                  className="titlebar-plain-icon"
+                  onClick={disconnectRemote}
+                  aria-label={t("disconnect_remote")}
+                  title={t("disconnect_remote")}
+                >
+                  <LogOut size={15} strokeWidth={1.7} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      {contextMenu && (
+      {contextMenu && !isRemoteSource && (
         <div
           className="context-menu"
           style={{ top: contextMenu.y, left: contextMenu.x }}
@@ -869,18 +1446,24 @@ function App() {
           <div className="sidebar-header">
             <div>
               <div className="panel-title panel-title-toggle">
-                {dirMode === "work" ? t("dir_work") : t("dir_config")}
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={toggleDirectoryMode}
-                  aria-label={
-                    dirMode === "work" ? t("toggle_to_config") : t("toggle_to_work")
-                  }
-                  title={dirMode === "work" ? t("toggle_to_config") : t("toggle_to_work")}
-                >
-                  <ArrowLeftRight size={14} strokeWidth={1.6} />
-                </button>
+                {isRemoteSource
+                  ? t("dir_remote")
+                  : dirMode === "work"
+                  ? t("dir_work")
+                  : t("dir_config")}
+                {!isRemoteSource && (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={toggleDirectoryMode}
+                    aria-label={
+                      dirMode === "work" ? t("toggle_to_config") : t("toggle_to_work")
+                    }
+                    title={dirMode === "work" ? t("toggle_to_config") : t("toggle_to_work")}
+                  >
+                    <ArrowLeftRight size={14} strokeWidth={1.6} />
+                  </button>
+                )}
               </div>
               <div className="panel-subtitle">
                 {workspacePath ?? t("no_dir_selected")}
@@ -899,13 +1482,33 @@ function App() {
                   <span className="clean-switch-knob" />
                 </button>
               </div>
-              <button className="link-button" onClick={chooseWorkspace} type="button">
-                {t("choose_dir")}
-              </button>
+              {!isRemoteSource && (
+                <button className="link-button" onClick={chooseWorkspace} type="button">
+                  {t("choose_dir")}
+                </button>
+              )}
             </div>
           </div>
+          <div className="sidebar-search">
+            <input
+              type="text"
+              className="sidebar-search-input"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t("search_files")}
+              spellCheck={false}
+            />
+          </div>
           <div className="tree">
-            {cleanMode ? (
+            {normalizedSearchQuery ? (
+              visibleFiles.length === 0 ? (
+                <div className="empty">{t("search_empty")}</div>
+              ) : (
+                visibleFiles.map((file) => renderFileButton(file, true))
+              )
+            ) : isRemoteSource && !remoteConnection ? (
+              <div className="empty">{t("remote_empty")}</div>
+            ) : cleanMode ? (
               renderCleanFileList()
             ) : tree ? (
               renderTree(tree)
@@ -920,7 +1523,7 @@ function App() {
             <div>
               <div className="panel-title">{t("editor_title")}</div>
               <div className="panel-subtitle">
-                {selectedFile ? selectedFile.path : t("editor_empty")}
+                {activeFilePath ?? t("editor_empty")}
               </div>
             </div>
             <div className="content-header-right">
@@ -961,7 +1564,7 @@ function App() {
           <div className="validation-row">
             {validation && (
               <div className={validation.ok ? "badge ok" : "badge error"}>
-                {validation.message}
+                {formatValidationMessage(validation)}
               </div>
             )}
             {selectedFile && isJsonFile(selectedFile) && isLargeJsonFile && (
@@ -975,11 +1578,17 @@ function App() {
             </div>
           </div>
 
-          <div className="viewer">
+          <div className={isFileLoading ? "viewer viewer-loading" : "viewer"}>
+            {showJumpToValidationError && (
+              <button type="button" className="link-button jump-error-floating" onClick={jumpToValidationError}>
+                {t("jump_to_error")}
+              </button>
+            )}
             {!selectedFile && <div className="empty">{t("no_file_selected")}</div>}
             {selectedFile && mode === "source" && isJsonFile(selectedFile) && (
               isLargeJsonFile ? (
                 <textarea
+                  ref={editorTextareaRef}
                   className="editor"
                   value={editedContent}
                   onChange={(event) => setEditedContent(event.target.value)}
@@ -987,6 +1596,9 @@ function App() {
                 />
               ) : (
                 <CodeMirror
+                  onCreateEditor={(view) => {
+                    codeMirrorViewRef.current = view;
+                  }}
                   value={editedContent}
                   height="100%"
                   theme={oneDark}
@@ -997,6 +1609,7 @@ function App() {
             )}
             {selectedFile && mode === "source" && !isJsonFile(selectedFile) && (
               <textarea
+                ref={editorTextareaRef}
                 className="editor"
                 value={editedContent}
                 onChange={(event) => setEditedContent(event.target.value)}
@@ -1068,6 +1681,12 @@ function App() {
                 )}
               </div>
             )}
+            {isFileLoading && (
+              <div className="viewer-loading-overlay">
+                <span className="remote-spinner viewer-spinner" aria-hidden />
+                <span>{t("file_loading_hint")}</span>
+              </div>
+            )}
           </div>
         </main>
 
@@ -1135,6 +1754,7 @@ function App() {
           {viewingPath && <div className="empty">{t("viewing_history")}</div>}
         </aside>
       </div>
+      <div className="app-copyright">© 2026 ClawForge. Made with love by XuYi</div>
     </div>
   );
 }
