@@ -109,7 +109,7 @@ const translations: Record<Language, Record<string, string>> = {
     validation_error_with_location: "语法错误（第 {line} 行，第 {column} 列）：{error}",
     jump_to_error: "错误定位",
     json_large_mode: "大 JSON 文件已切换轻量编辑模式，以减少卡顿。",
-    search_files: "搜索文件名或路径",
+    search_files: "搜索文件名",
     search_empty: "没有匹配的文件。",
     context_reveal: "在文件夹中显示",
     empty_content: "(空文件或未加载)",
@@ -214,7 +214,7 @@ const translations: Record<Language, Record<string, string>> = {
     validation_error_with_location: "Syntax error at line {line}, column {column}: {error}",
     jump_to_error: "Locate error",
     json_large_mode: "Large JSON switched to lightweight editor to reduce lag.",
-    search_files: "Search file name or path",
+    search_files: "Search file name",
     search_empty: "No matching files.",
     context_reveal: "Show in folder",
     empty_content: "(empty or not loaded)",
@@ -457,8 +457,7 @@ function App() {
     if (!normalizedSearchQuery) return flatFiles;
     return flatFiles.filter((file) => {
       const name = file.name.toLowerCase();
-      const path = file.path.toLowerCase();
-      return name.includes(normalizedSearchQuery) || path.includes(normalizedSearchQuery);
+      return name.includes(normalizedSearchQuery);
     });
   }, [flatFiles, normalizedSearchQuery]);
   const isRemoteSource = sourceMode === "remote";
@@ -1504,7 +1503,7 @@ function App() {
               visibleFiles.length === 0 ? (
                 <div className="empty">{t("search_empty")}</div>
               ) : (
-                visibleFiles.map((file) => renderFileButton(file, true))
+                visibleFiles.map((file) => renderFileButton(file))
               )
             ) : isRemoteSource && !remoteConnection ? (
               <div className="empty">{t("remote_empty")}</div>
