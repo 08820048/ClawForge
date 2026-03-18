@@ -442,21 +442,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawforge"
-version = "0.1.6"
-dependencies = [
- "dirs-next",
- "json5",
- "serde",
- "serde_json",
- "serde_yaml",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
-]
-
-[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,6 +941,21 @@ name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
+
+[[package]]
+name = "forclaw"
+version = "0.1.7"
+dependencies = [
+ "dirs-next",
+ "json5",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+]
 
 [[package]]
 name = "foreign-types"

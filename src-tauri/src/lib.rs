@@ -496,7 +496,7 @@ fn should_use_password(connection: &RemoteConnection) -> bool {
 
 fn create_askpass_script(password: &str) -> Result<AskpassScript, String> {
     let file_name = format!(
-        "clawforge-askpass-{}-{}.sh",
+        "forclaw-askpass-{}-{}.sh",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -558,7 +558,7 @@ fn configure_ssh_password_auth(
     command.env("SSH_ASKPASS_REQUIRE", "force");
     command.env(
         "DISPLAY",
-        env::var("DISPLAY").unwrap_or_else(|_| "clawforge:0".to_string()),
+        env::var("DISPLAY").unwrap_or_else(|_| "forclaw:0".to_string()),
     );
     Ok(Some(askpass))
 }
@@ -891,7 +891,7 @@ fn save_remote_file_blocking(
         .map_err(|e| e.to_string())?
         .as_secs();
     let backup_path = format!("{}/{}.{}.bak", backup_dir, file_name, epoch);
-    let temp_path = format!("{}/.clawforge.tmp.{}.{}", backup_dir, epoch, file_name);
+    let temp_path = format!("{}/.forclaw.tmp.{}.{}", backup_dir, epoch, file_name);
 
     let backup_output = run_ssh_script(
         &connection,
@@ -1073,8 +1073,8 @@ pub fn run() {
 
             let about_item = MenuItem::with_id(
                 app,
-                "about-clawforge",
-                "About ClawForge",
+                "about-forclaw",
+                "About Forclaw",
                 true,
                 None::<&str>,
             )?;
@@ -1183,8 +1183,8 @@ pub fn run() {
             )
         })
         .on_menu_event(|app, event| {
-            if event.id() == "about-clawforge" {
-                let _ = app.emit("about-clawforge", ());
+            if event.id() == "about-forclaw" {
+                let _ = app.emit("about-forclaw", ());
             }
             if event.id() == "open-language-settings" {
                 let _ = app.emit("open-language-settings", ());

@@ -1,6 +1,6 @@
-# ClawForge
+# Forclaw
 
-ClawForge is a desktop application built with Tauri + React. This repository contains the app source code and build tooling.
+Forclaw is a desktop application built with Tauri + React. This repository contains the app source code and build tooling.
 
 ## Features
 

@@ -168,8 +168,8 @@ const translations: Record<Language, Record<string, string>> = {
     status_history_cleared: "已清理 {count} 条历史版本。",
     status_clear_history_failed: "清理历史失败：{error}",
     status_delete_history_failed: "删除历史失败：{error}",
-    about_title: "About ClawForge",
-    about_content: "ClawForge\n开发者：xuyi.dev\n开源地址：https://github.com/08820048/ClawForge",
+    about_title: "About Forclaw",
+    about_content: "Forclaw\n开发者：xuyi.dev\n开源地址：https://github.com/08820048/ClawForge",
   },
   en: {
     lang_title: "Choose Language",
@@ -274,8 +274,8 @@ const translations: Record<Language, Record<string, string>> = {
     status_history_cleared: "Cleared {count} history versions.",
     status_clear_history_failed: "Clear history failed: {error}",
     status_delete_history_failed: "Delete history failed: {error}",
-    about_title: "About ClawForge",
-    about_content: "ClawForge\nDeveloper: xuyi.dev\nSource: https://github.com/08820048/ClawForge",
+    about_title: "About Forclaw",
+    about_content: "Forclaw\nDeveloper: xuyi.dev\nSource: https://github.com/08820048/ClawForge",
   },
 };
 
@@ -535,7 +535,7 @@ function App() {
     let unlisten: (() => void) | null = null;
     let unlistenLang: (() => void) | null = null;
     const setup = async () => {
-      unlisten = await listen("about-clawforge", () => {
+      unlisten = await listen("about-forclaw", () => {
         showAbout();
       });
       unlistenLang = await listen("open-language-settings", () => {
@@ -1754,7 +1754,7 @@ function App() {
           {viewingPath && <div className="empty">{t("viewing_history")}</div>}
         </aside>
       </div>
-      <div className="app-copyright">© 2026 ClawForge. Made with love by XuYi</div>
+      <div className="app-copyright">© 2026 Forclaw. Made with love by XuYi</div>
     </div>
   );
 }

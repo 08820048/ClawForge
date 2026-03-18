@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing to ClawForge.
+Thanks for your interest in contributing to Forclaw.
 
 ## Quick Start
 
